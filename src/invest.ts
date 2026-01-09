@@ -1288,6 +1288,7 @@ export async function setupBasketMandate(
 
 /**
  * Invest in basket SIP (for action plans with SIP breakdown)
+ * Frontend sends array with sipData containing individual fund allocations
  */
 export async function investBasketSIP(
   tokenManager: TokenManager,
@@ -1302,23 +1303,58 @@ export async function investBasketSIP(
     const clientCode = await getClientCode(tokenManager);
     const phoneOnly = getPhoneWithoutCountryCode(phoneNumber);
 
-    // Calculate SIP start date
-    const sipStartDate = calculateSIPStartDate(sipDate);
-
     console.error('\n=== INVEST BASKET SIP ===');
+    console.error('Plan ID:', planId);
+    console.error('SIP Amount:', sipAmount);
+    console.error('SIP Date:', sipDate);
+    console.error('Mandate ID:', mandateId);
+
+    // Step 1: Fetch action plan to get sipInvestmentBreakdown
+    console.error('\n=== STEP 1: FETCH ACTION PLAN DETAILS ===');
+    const actionPlan = await getActionPlanById(client, planId);
+
+    if (!actionPlan.sipInvestmentBreakdown || actionPlan.sipInvestmentBreakdown.length === 0) {
+      throw new Error('This action plan has no SIP investment breakdown. Cannot setup SIP.');
+    }
+
+    console.error('SIP Investment Breakdown:', JSON.stringify(actionPlan.sipInvestmentBreakdown, null, 2));
+
+    // Step 2: Build sipData array from breakdown
+    // Frontend: sipData: plan.sipInvestmentBreakdown.filter(p => p.weightage > 0).map(item => ({
+    //   schemeCode: item.bseSchemeCode,
+    //   installmentAmount: calculatePercentageAmount(item.weightage, plan.sipInvestmentAmount)
+    // }))
+    const sipDataArray = actionPlan.sipInvestmentBreakdown
+      .filter((item: any) => item.weightage > 0)
+      .map((item: any) => ({
+        schemeCode: item.bseSchemeCode,
+        installmentAmount: Math.round((item.weightage / 100) * sipAmount),
+      }));
+
+    console.error('Built sipData:', JSON.stringify(sipDataArray, null, 2));
+
+    if (sipDataArray.length === 0) {
+      throw new Error('No valid funds found in SIP investment breakdown.');
+    }
+
+    // Calculate SIP start date (next month on specified date)
+    const startDate = calculateSIPStartDate(sipDate);
+
+    // Step 3: Build payload - Frontend sends as ARRAY
+    const sipPayload = [
+      {
+        sipData: sipDataArray,
+        clientCode: clientCode.toUpperCase(),
+        startDate: startDate,
+        mandateId: mandateId,
+        customerBasketInvestmentId: planId,
+        phoneNumber: phoneOnly,
+      }
+    ];
+
+    console.error('\n=== STEP 2: REGISTER BASKET SIP ===');
     console.error('URL:', `${CONFIG.BASE_URL}${CONFIG.ENDPOINTS.MULTI_BASKET_SIP_REGISTRATION}`);
-
-    const sipPayload = {
-      customerBasketInvestmentId: planId,
-      sipAmount,
-      sipDate,
-      sipStartDate,
-      mandateId,
-      clientCode,
-      phoneNumber: phoneOnly,
-    };
-
-    console.error('SIP Payload:', JSON.stringify(sipPayload, null, 2));
+    console.error('SIP Payload (Array):', JSON.stringify(sipPayload, null, 2));
 
     const response = await client.post<any>(
       CONFIG.ENDPOINTS.MULTI_BASKET_SIP_REGISTRATION,
@@ -1327,36 +1363,53 @@ export async function investBasketSIP(
 
     console.error('SIP Response:', JSON.stringify(response.data, null, 2));
 
-    if (response.data.status !== 'SUCCESS' && response.data.isError) {
+    // Check for error
+    if (response.data.isError) {
+      throw new Error(response.data.message || response.data.response?.data || 'SIP registration failed');
+    }
+
+    if (response.data.status !== 'SUCCESS') {
       throw new Error(response.data.message || 'SIP registration failed');
     }
 
-    let result = `✅ Basket SIP Registered Successfully!\n\n`;
-    result += `Plan ID: ${planId}\n`;
-    result += `Monthly Amount: ${formatCurrency(sipAmount)}\n`;
-    result += `SIP Date: ${sipDate} of every month\n`;
-    result += `Start Date: ${sipStartDate}\n`;
-    result += `Mandate ID: ${mandateId}\n\n`;
+    // Build success response
+    let result = `╔════════════════════════════════════════════════════════════╗\n`;
+    result += `║  ✅ BASKET SIP REGISTERED SUCCESSFULLY                     ║\n`;
+    result += `╠════════════════════════════════════════════════════════════╣\n`;
+    result += `║                                                            ║\n`;
+    result += `║  📋 Plan: ${(actionPlan.customerBasketName || 'Action Plan').substring(0, 47).padEnd(47)}║\n`;
+    result += `║  🆔 Plan ID: ${planId.toString().padEnd(44)}║\n`;
+    result += `║  💰 Monthly Amount: ${formatCurrency(sipAmount).padEnd(37)}║\n`;
+    result += `║  📅 SIP Date: ${sipDate.toString().padEnd(43)}║\n`;
+    result += `║  📆 Start Date: ${startDate.padEnd(41)}║\n`;
+    result += `║  🔖 Mandate ID: ${mandateId.padEnd(41)}║\n`;
+    result += `║                                                            ║\n`;
+    result += `╠════════════════════════════════════════════════════════════╣\n`;
+    result += `║  📊 FUND ALLOCATIONS:                                      ║\n`;
 
-    if (response.data.data) {
-      const sipData = response.data.data;
-      if (sipData.orderId) result += `Order ID: ${sipData.orderId}\n`;
-      if (sipData.status) result += `Status: ${sipData.status}\n`;
-    }
+    sipDataArray.forEach((fund: any) => {
+      const fundLine = `  • ${fund.schemeCode}: ${formatCurrency(fund.installmentAmount)}`;
+      result += `║${fundLine.padEnd(60)}║\n`;
+    });
 
-    result += `\n🎉 Your SIP has been set up successfully!\n`;
-    result += `\n💡 Track your SIPs: Use fabits_get_sips`;
+    result += `║                                                            ║\n`;
+    result += `╠════════════════════════════════════════════════════════════╣\n`;
+    result += `║  🎉 Your SIP is now active!                                ║\n`;
+    result += `║  Amount will be debited on the ${sipDate}th of each month.     ║\n`;
+    result += `║                                                            ║\n`;
+    result += `║  💡 View your SIPs: fabits_get_sips                        ║\n`;
+    result += `╚════════════════════════════════════════════════════════════╝\n`;
 
     return result;
   } catch (error) {
     console.error('\n=== INVEST BASKET SIP ERROR ===');
     console.error('Error:', error);
     if (axios.isAxiosError(error)) {
-      const message = error.response?.data?.message || error.message;
-      throw new Error(`Basket SIP investment failed: ${message}\n\nFull Error: ${JSON.stringify(error.response?.data, null, 2)}`);
+      const message = error.response?.data?.message || error.response?.data?.response?.data || error.message;
+      throw new Error(`Basket SIP registration failed: ${message}\n\nFull response: ${JSON.stringify(error.response?.data, null, 2)}`);
     }
     if (error instanceof Error) {
-      throw new Error(`Basket SIP investment failed: ${error.message}`);
+      throw new Error(`Basket SIP registration failed: ${error.message}`);
     }
     throw error;
   }
