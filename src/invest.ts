@@ -1455,8 +1455,10 @@ export async function investBasketOneTime(
 
 /**
  * Register a standalone mandate (without requiring a plan)
- * Returns mandateId and authUrl for user to complete authentication
- * Does NOT poll - user should call checkMandateStatus after completing auth
+ * Logic matches frontend:
+ * 1. Call mandateRegistration → get mandateId, mandateStatus, alreadyExists
+ * 2. If alreadyExists && mandateStatus !== 'NEW' → already approved, return it
+ * 3. If mandateStatus === 'NEW' || null → need auth, get authUrl
  */
 export async function registerMandate(
   tokenManager: TokenManager,
@@ -1470,13 +1472,14 @@ export async function registerMandate(
     console.error('Amount:', amount);
     console.error('Client Code:', clientCode);
 
-    // Calculate SIP start date (next month) in DD/MM/YYYY format
+    // Calculate SIP start date (1st of next month) in DD/MM/YYYY format
     const today = new Date();
     const nextMonth = new Date(today.getFullYear(), today.getMonth() + 1, 1);
     const sipStartDate = nextMonth.toLocaleDateString('en-GB').replace(/\//g, '/');
 
-    // Step 1: Register mandate
-    console.error('\n=== STEP 1: REGISTER MANDATE ===');
+    // Step 1: Register mandate (or get existing one)
+    // Frontend payload: { clientCode, amount, sipStartDate, mandateType }
+    console.error('\n=== STEP 1: REGISTER/CHECK MANDATE ===');
     console.error('URL:', `${CONFIG.BASE_URL}${CONFIG.ENDPOINTS.MANDATE_REGISTRATION}`);
 
     const mandatePayload = {
@@ -1495,22 +1498,48 @@ export async function registerMandate(
 
     console.error('Mandate Response:', JSON.stringify(mandateResponse.data, null, 2));
 
-    if (mandateResponse.data.status !== 'SUCCESS') {
-      const errorMsg = mandateResponse.data.message || mandateResponse.data.data || 'Mandate registration failed';
+    // Check for error
+    if (mandateResponse.data.status !== 'SUCCESS' && mandateResponse.data.isError) {
+      const errorMsg = mandateResponse.data.message || mandateResponse.data.response?.data || 'Mandate registration failed';
       throw new Error(`Mandate registration failed: ${errorMsg}`);
     }
 
-    const mandateId = mandateResponse.data.mandateId || mandateResponse.data.data?.mandateId;
-    const mandateStatus = mandateResponse.data.mandateStatus || mandateResponse.data.data?.mandateStatus;
-
-    if (!mandateId) {
-      throw new Error('No mandate ID received from registration');
-    }
+    // Frontend reads directly from response, not from response.data
+    const mandateId = mandateResponse.data.mandateId;
+    const mandateStatus = mandateResponse.data.mandateStatus;
+    const alreadyExists = mandateResponse.data.alreadyExists;
 
     console.error('Mandate ID:', mandateId);
     console.error('Mandate Status:', mandateStatus);
+    console.error('Already Exists:', alreadyExists);
 
-    // Step 2: Get e-mandate auth URL
+    if (!mandateId) {
+      throw new Error(`No mandate ID received. Full response: ${JSON.stringify(mandateResponse.data)}`);
+    }
+
+    // CASE 1: Mandate already exists and is approved (not NEW)
+    // Frontend: if (status === 'SUCCESS' && mandateStatus !== 'NEW' && mandateStatus !== null && alreadyExists)
+    if (alreadyExists && mandateStatus && mandateStatus !== 'NEW') {
+      let result = `╔════════════════════════════════════════════════════════════╗\n`;
+      result += `║  ✅ EXISTING MANDATE FOUND - ALREADY APPROVED              ║\n`;
+      result += `╠════════════════════════════════════════════════════════════╣\n`;
+      result += `║                                                            ║\n`;
+      result += `║  📋 MANDATE ID: ${mandateId.toString().padEnd(41)}║\n`;
+      result += `║  📊 Status: ${mandateStatus.padEnd(46)}║\n`;
+      result += `║  💰 Amount: ${formatCurrency(amount).padEnd(45)}║\n`;
+      result += `║                                                            ║\n`;
+      result += `╠════════════════════════════════════════════════════════════╣\n`;
+      result += `║  🎉 NO AUTHENTICATION NEEDED!                              ║\n`;
+      result += `║                                                            ║\n`;
+      result += `║  Your mandate is already approved and ready to use.        ║\n`;
+      result += `║  Use mandate_id: ${mandateId.toString().padEnd(38)}║\n`;
+      result += `║  with fabits_start_sip or fabits_invest_basket_sip         ║\n`;
+      result += `╚════════════════════════════════════════════════════════════╝\n`;
+      return result;
+    }
+
+    // CASE 2: New mandate needs authentication
+    // Frontend: if ((mandateStatus === 'NEW' || mandateStatus === null) && status === 'SUCCESS')
     console.error('\n=== STEP 2: GET E-MANDATE AUTH URL ===');
     console.error('URL:', `${CONFIG.BASE_URL}${CONFIG.ENDPOINTS.EMANDATE_AUTH_URL}`);
 
@@ -1530,23 +1559,24 @@ export async function registerMandate(
     console.error('Auth URL Response:', JSON.stringify(authUrlResponse.data, null, 2));
 
     let authUrl = '';
-    if (authUrlResponse.data.status === 'SUCCESS' || authUrlResponse.data.Status === 100) {
-      authUrl = authUrlResponse.data.data?.authUrl || authUrlResponse.data.RedirectURL || '';
+    // Check for success and extract URL
+    if (authUrlResponse.data.Status === 100 || authUrlResponse.data.status === 'SUCCESS') {
+      authUrl = authUrlResponse.data.RedirectURL || authUrlResponse.data.data?.authUrl || '';
     }
 
     // Format response for user
     let result = `╔════════════════════════════════════════════════════════════╗\n`;
-    result += `║  🏦 MANDATE REGISTERED                                     ║\n`;
+    result += `║  🏦 MANDATE REGISTERED - AUTHENTICATION REQUIRED           ║\n`;
     result += `╠════════════════════════════════════════════════════════════╣\n`;
     result += `║                                                            ║\n`;
-    result += `║  📋 MANDATE ID: ${mandateId.padEnd(41)}║\n`;
-    result += `║     (SAVE THIS - You'll need it for SIPs)                  ║\n`;
+    result += `║  📋 MANDATE ID: ${mandateId.toString().padEnd(41)}║\n`;
+    result += `║     ⚠️  SAVE THIS ID - You need it to check status later   ║\n`;
     result += `║                                                            ║\n`;
     result += `║  💰 Amount: ${formatCurrency(amount).padEnd(45)}║\n`;
-    result += `║  📊 Status: PENDING (awaiting bank authentication)         ║\n`;
+    result += `║  📊 Status: ${(mandateStatus || 'NEW').padEnd(46)}║\n`;
     result += `║                                                            ║\n`;
     result += `╠════════════════════════════════════════════════════════════╣\n`;
-    result += `║  🔐 COMPLETE E-MANDATE AUTHENTICATION                      ║\n`;
+    result += `║  🔐 COMPLETE BANK AUTHENTICATION                           ║\n`;
     result += `╠════════════════════════════════════════════════════════════╣\n`;
 
     if (authUrl) {
@@ -1554,17 +1584,23 @@ export async function registerMandate(
       result += `║  ${authUrl}\n`;
       result += `║                                                            ║\n`;
     } else {
-      result += `║  ⚠️  Auth URL not available. Your bank may send an SMS.   ║\n`;
+      result += `║                                                            ║\n`;
+      result += `║  ⚠️ Auth URL not generated. Please check your bank SMS    ║\n`;
+      result += `║     or try again in a few moments.                        ║\n`;
+      result += `║                                                            ║\n`;
     }
 
     result += `╠════════════════════════════════════════════════════════════╣\n`;
     result += `║  📝 NEXT STEPS:                                            ║\n`;
-    result += `║  1. Open the link above in your browser                    ║\n`;
-    result += `║  2. Complete the bank authentication                       ║\n`;
-    result += `║  3. Come back and say "Check mandate status ${mandateId}"  ║\n`;
     result += `║                                                            ║\n`;
-    result += `║  ⚠️  IMPORTANT: Save your Mandate ID - ${mandateId}        ║\n`;
-    result += `║     You can use it later to check status or start SIPs    ║\n`;
+    result += `║  1. Open the authentication link in your browser           ║\n`;
+    result += `║  2. Complete the bank e-mandate authentication             ║\n`;
+    result += `║  3. Return here and say:                                   ║\n`;
+    result += `║     "Check mandate ${mandateId}"                           ║\n`;
+    result += `║                                                            ║\n`;
+    result += `║  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━  ║\n`;
+    result += `║  💾 YOUR MANDATE ID: ${mandateId.toString().padEnd(37)}║\n`;
+    result += `║  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━  ║\n`;
     result += `╚════════════════════════════════════════════════════════════╝\n`;
 
     return result;
@@ -1573,7 +1609,7 @@ export async function registerMandate(
     console.error('Error:', error);
     if (axios.isAxiosError(error)) {
       const message = error.response?.data?.message || error.response?.data?.data || error.message;
-      throw new Error(`Mandate registration failed: ${message}`);
+      throw new Error(`Mandate registration failed: ${message}\n\nFull response: ${JSON.stringify(error.response?.data, null, 2)}`);
     }
     if (error instanceof Error) {
       throw new Error(`Mandate registration failed: ${error.message}`);
