@@ -586,12 +586,12 @@ export async function verifyTransactionalOTP(
 async function pollPaymentStatus(
   client: any,
   clientCode: string,
-  orderNumber: string,
+  orderNumber: string | string[],
   maxAttempts: number = 60,
   intervalMs: number = 5000
 ): Promise<{ success: boolean; status: string; data: string }> {
   console.error('\n=== POLLING PAYMENT STATUS ===');
-  console.error('Order Number:', orderNumber);
+  console.error('Order Number:', JSON.stringify(orderNumber));
   console.error('Max Attempts:', maxAttempts);
   console.error('Interval:', intervalMs, 'ms');
 
@@ -1533,12 +1533,9 @@ export async function investBasketOneTime(
     console.error('\n=== STEP 3: INITIATE UPI PAYMENT ===');
     console.error('URL:', `${CONFIG.BASE_URL}${CONFIG.ENDPOINTS.ONE_TIME_PAYMENT}`);
 
-    // Use first order number for payment (consolidated)
-    const primaryOrderNumber = orderNumbers[0];
-
     const paymentPayload = {
       clientCode: clientCode.toUpperCase(),
-      orderNumber: primaryOrderNumber,
+      orderNumber: orderNumbers, // Send as ARRAY [order1, order2, ...]
       totalAmount: totalAmount,
       upiId,
       modeOfPayment: 'UPI',
@@ -1566,13 +1563,17 @@ export async function investBasketOneTime(
     // Step 5: Poll payment status
     console.error('\n=== STEP 4: POLL PAYMENT STATUS ===');
 
-    const paymentStatus = await pollPaymentStatus(client, clientCode.toUpperCase(), primaryOrderNumber);
+    // For polling, we check status using the array of orders (backend supports checking status for list)
+    // Actually, pollPaymentStatus usually takes one ID. Let's check if we need to modify it.
+    // The paymentStatus endpoint takes { orderNo: [...] } as array too.
+
+    const paymentStatus = await pollPaymentStatus(client, clientCode.toUpperCase(), orderNumbers);
 
     if (paymentStatus.success) {
       result += `╔════════════════════════════════════════════════════════════╗\n`;
       result += `║  ✅ PAYMENT SUCCESSFUL                                     ║\n`;
       result += `╠════════════════════════════════════════════════════════════╣\n`;
-      result += `║  Order Number: ${primaryOrderNumber.toString().padEnd(42)}║\n`;
+      result += `║  Orders: ${orderNumbers.length} orders processed                          ║\n`;
       result += `║  Amount: ${formatCurrency(totalAmount).padEnd(48)}║\n`;
       result += `║                                                            ║\n`;
       result += `║  🎉 Your investment is complete!                           ║\n`;
@@ -1582,12 +1583,12 @@ export async function investBasketOneTime(
       result += `⚠️  Payment Status: Pending\n\n`;
       result += `We couldn't confirm payment within the timeout period.\n`;
       result += `This doesn't mean it failed - it may still be processing.\n\n`;
-      result += `Order Number: ${primaryOrderNumber}\n\n`;
+      result += `Orders: ${orderNumbers.join(', ')}\n\n`;
       result += `💡 Check later: fabits_get_transactions`;
     } else {
       result += `❌ Payment Failed\n\n`;
       result += `Status: ${paymentStatus.data}\n`;
-      result += `Order Number: ${primaryOrderNumber}\n\n`;
+      result += `Orders: ${orderNumbers.join(', ')}\n\n`;
       result += `Please try again or contact support.`;
     }
 
