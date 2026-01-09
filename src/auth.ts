@@ -120,6 +120,7 @@ async function silentRefreshToken(tokenManager: TokenManager): Promise<string> {
       refreshToken: response.data.refresh_token || tokenData.refreshToken,
       phoneNumber: decodedToken.phoneNumber || tokenData.phoneNumber,
       clientCode: decodedToken.uid || tokenData.clientCode,
+      panNumber: decodedToken.panNumber || tokenData.panNumber,
     };
 
     await tokenManager.saveToken(updatedAuthToken);
@@ -316,17 +317,19 @@ export async function verifyOTP(phoneNumber: string, otp: string, tokenManager: 
       refreshToken: data.refresh_token,
       phoneNumber: decodedToken.phoneNumber || phoneNumber,
       clientCode: decodedToken.uid,
+      panNumber: decodedToken.panNumber,
     };
 
     console.error('\n=== TOKEN SAVED ===');
     console.error('Phone:', authToken.phoneNumber);
     console.error('Client Code:', authToken.clientCode);
+    console.error('PAN Number:', authToken.panNumber || 'Not available');
     console.error('Token (first 20 chars):', authToken.token.substring(0, 20) + '...');
     console.error('Refresh Token (first 20 chars):', authToken.refreshToken?.substring(0, 20) + '...');
 
     await tokenManager.saveToken(authToken);
 
-    let loginMessage = `✅ Login Successful!\n\nPhone: ${authToken.phoneNumber}\nClient Code: ${authToken.clientCode || 'Not available'}\nName: ${decodedToken.firstName || ''} ${decodedToken.lastName || ''}\nEmail: ${decodedToken.email || 'Not available'}\n\nYour session is active. You can now search funds and make investments.`;
+    let loginMessage = `✅ Login Successful!\n\nPhone: ${authToken.phoneNumber}\nClient Code: ${authToken.clientCode || 'Not available'}\nPAN: ${authToken.panNumber || 'Not available'}\nName: ${decodedToken.firstName || ''} ${decodedToken.lastName || ''}\nEmail: ${decodedToken.email || 'Not available'}\n\nYour session is active. You can now search funds and make investments.`;
 
     // Auto-fetch basket holdings after successful login
     try {
@@ -493,6 +496,7 @@ export async function refreshAccessToken(tokenManager: TokenManager): Promise<st
       refreshToken: data.refresh_token || tokenData.refreshToken, // Use new refresh token if provided, else keep old one
       phoneNumber: decodedToken.phoneNumber || tokenData.phoneNumber,
       clientCode: decodedToken.uid || tokenData.clientCode,
+      panNumber: decodedToken.panNumber || tokenData.panNumber,
     };
 
     console.error('\n=== UPDATED TOKEN SAVED ===');

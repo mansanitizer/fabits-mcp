@@ -10,6 +10,7 @@ export interface AuthToken {
   phoneNumber: string;
   expiresAt?: string;
   clientCode?: string;
+  panNumber?: string;
 }
 
 export interface LoginRequest {

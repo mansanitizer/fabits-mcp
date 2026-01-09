@@ -3,7 +3,9 @@ import { TokenManager, requestOTP, verifyOTP, getAuthStatus, refreshAccessToken,
 import { searchFunds, getFundDetails, getStarFunds } from './funds.js';
 import { investLumpsum, startSIP, redeemFund, investBasket, getAllBaskets, sendTransactionalOTP, verifyTransactionalOTP, investLumpsumUPI, completeLumpsumUPI, checkPaymentStatus, setupBasketMandate, investBasketSIP, investBasketOneTime } from './invest.js';
 import { getPortfolio, getSIPs, getTransactions, cancelSIP, getBasketHoldings, getActionPlans } from './portfolio.js';
+import { testInvestwellTransactions } from './investwell.js';
 import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
+
 
 export async function dispatchToolCall(name: string, args: any, tokenManager: TokenManager) {
     switch (name) {
@@ -226,6 +228,15 @@ export async function dispatchToolCall(name: string, args: any, tokenManager: To
 
         case 'fabits_get_action_plans': {
             const result = await getActionPlans(tokenManager);
+            return { content: [{ type: 'text', text: result }] };
+        }
+
+        // Investwell Integration
+        case 'investwell_test_transactions': {
+            const result = await testInvestwellTransactions(
+                tokenManager,
+                args.year as number | undefined
+            );
             return { content: [{ type: 'text', text: result }] };
         }
 
