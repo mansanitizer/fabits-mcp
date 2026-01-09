@@ -201,6 +201,17 @@ export const TOOLS: Tool[] = [
         },
     },
     {
+        name: 'fabits_get_baskets',
+        description: 'Get all available investment baskets (universal baskets). Shows basket ID, name, description, funds, allocations, and minimum investment. Use basket_id with fabits_invest_basket to invest.',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                ...USER_ID_PROP,
+            },
+            required: ['user_id'],
+        },
+    },
+    {
         name: 'fabits_invest_basket',
         description: 'Invest in a basket of funds.',
         inputSchema: {

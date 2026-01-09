@@ -97,6 +97,11 @@ export async function dispatchToolCall(name: string, args: any, tokenManager: To
             return { content: [{ type: 'text', text: result }] };
         }
 
+        case 'fabits_get_baskets': {
+            const result = await getAllBaskets(tokenManager);
+            return { content: [{ type: 'text', text: result }] };
+        }
+
         case 'fabits_invest_basket': {
             const result = await investBasket(
                 tokenManager,
