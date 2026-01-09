@@ -114,6 +114,31 @@ app.post('/messages', async (req, res) => {
     await session.transport.handlePostMessage(req, res);
 });
 
+// Payment Redirect Endpoint
+const PAYMENTS_DIR = path.join(os.homedir(), '.config', 'fabits-mcp', 'payments');
+if (!existsSync(PAYMENTS_DIR)) {
+    mkdirSync(PAYMENTS_DIR, { recursive: true });
+}
+
+app.get('/pay/:orderId', (req, res) => {
+    const { orderId } = req.params;
+    const cleanOrderId = orderId.replace(/[^a-z0-9]/gi, ''); // Sanitize
+    const filePath = path.join(PAYMENTS_DIR, `${cleanOrderId}.html`);
+
+    if (existsSync(filePath)) {
+        res.sendFile(filePath);
+    } else {
+        res.status(404).send(`
+            <html>
+                <body style="font-family: sans-serif; text-align: center; padding: 50px;">
+                    <h1>Payment Link Expired or Invalid</h1>
+                    <p>The payment link you are trying to access is no longer available or the order ID is incorrect.</p>
+                </body>
+            </html>
+        `);
+    }
+});
+
 app.listen(PORT, () => {
     console.log(`Fabits MCP SSE Server running on port ${PORT}`);
     console.log(`Endpoint: http://localhost:${PORT}/sse`);
