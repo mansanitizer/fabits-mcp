@@ -8,7 +8,7 @@ import { TOOLS } from './tool-defs.js';
 import { dispatchToolCall } from './dispatcher.js';
 import { TokenManager } from './auth.js';
 import path from 'path';
-import { existsSync, mkdirSync } from 'fs';
+import { existsSync, mkdirSync, readFileSync } from 'fs';
 import os from 'os';
 
 const app = express();
@@ -125,9 +125,39 @@ app.get('/pay/:orderId', (req, res) => {
     const cleanOrderId = orderId.replace(/[^a-z0-9]/gi, ''); // Sanitize
     const filePath = path.join(PAYMENTS_DIR, `${cleanOrderId}.html`);
 
+    console.log(`[Payment] Requested Order ID: ${cleanOrderId}`);
+    console.log(`[Payment] Looking for file: ${filePath}`);
+
     if (existsSync(filePath)) {
-        res.sendFile(filePath);
+        try {
+            // Use readFileSync instead of sendFile to avoid path resolution issues
+            // import { readFileSync } from 'fs'; needs to be added to imports if not present,
+            // but we can just use fs.readFileSync if we import all of fs or add it locally.
+            // Since we only imported specific named exports from 'fs', let's fix imports first or assume we edit imports.
+            // Wait, previous replace_file_content for server.ts only had { existsSync, mkdirSync }.
+            // We need to add readFileSync to imports or just use it if we change imports.
+            // Let's assume we will fix imports in a separate step or just use a dynamic read here? 
+            // Better to fix imports properly.
+            // For this step's ReplacementContent, I will assume readFileSync is available or I will add it to the import line in a separate step?
+            // Actually, I can replace the import line in this same file if I widen the scope?
+            // checking file content... import { existsSync, mkdirSync } from 'fs';
+            // I'll stick to 'fs' imports update in a separate call to be safe, or just use fs.readFileSync if I imported * as fs?
+            // server.ts has: import { existsSync, mkdirSync } from 'fs';
+            // I will update this handler to use fs.readFileSync and *add* readFileSync to the import list in a PREVIOUS step or just update imports now.
+            // I will update the import in a separate step to be clean.
+
+            // For now, write the handler assuming readFileSync is available.
+
+            const htmlContent = readFileSync(filePath, 'utf-8');
+            res.setHeader('Content-Type', 'text/html');
+            res.send(htmlContent);
+            console.log(`[Payment] Served file successfully`);
+        } catch (err) {
+            console.error(`[Payment] Error reading file: ${err}`);
+            res.status(500).send('Internal Server Error');
+        }
     } else {
+        console.warn(`[Payment] File not found: ${filePath}`);
         res.status(404).send(`
             <html>
                 <body style="font-family: sans-serif; text-align: center; padding: 50px;">
