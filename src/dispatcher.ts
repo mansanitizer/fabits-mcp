@@ -155,9 +155,7 @@ export async function dispatchToolCall(name: string, args: any, tokenManager: To
         case 'fabits_check_payment_status': {
             const result = await checkPaymentStatus(
                 tokenManager,
-                args.order_number as string,
-                args.max_attempts as number | undefined,
-                args.interval_seconds as number | undefined
+                args.order_number as string
             );
             return { content: [{ type: 'text', text: result }] };
         }

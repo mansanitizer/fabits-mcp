@@ -647,51 +647,62 @@ async function pollPaymentStatus(
 
 /**
  * Check payment status for an order (standalone tool)
+ * Checks ONCE (no long polling)
  */
 export async function checkPaymentStatus(
   tokenManager: TokenManager,
-  orderNumber: string,
-  maxAttempts: number = 20,
-  intervalSeconds: number = 30
+  orderNumber: string
 ): Promise<string> {
   try {
     const client = await createAuthenticatedClient(tokenManager);
     const clientCode = await getClientCode(tokenManager);
 
-    console.error('\n=== CHECK PAYMENT STATUS ===');
-    console.error('Order Number:', orderNumber);
-    console.error('Client Code:', clientCode);
-    console.error('Max Attempts:', maxAttempts);
-    console.error('Check Interval:', intervalSeconds, 'seconds');
+    // Handle multiple order numbers (comma separated)
+    const orderNumbers = orderNumber.includes(',')
+      ? orderNumber.split(',').map(s => s.trim()).filter(Boolean)
+      : orderNumber.trim();
 
-    let result = `🔍 Checking Payment Status\n\n`;
-    result += `Order Number: ${orderNumber}\n`;
-    result += `Client Code: ${clientCode}\n`;
-    result += `Polling every ${intervalSeconds} seconds (max ${maxAttempts} attempts)...\n\n`;
+    console.error('\n=== CHECK PAYMENT STATUS (ONCE) ===');
+    console.error('Order Number(s):', JSON.stringify(orderNumbers));
 
+    let result = `🔍 Checking Payment Status...\\n\\n`;
+
+    // Check just ONCE (maxAttempts=1)
     const paymentStatus = await pollPaymentStatus(
       client,
       clientCode,
-      orderNumber,
-      maxAttempts,
-      intervalSeconds * 1000
+      orderNumbers,
+      1, // Single attempt
+      1000 // 1 second timeout (irrelevant for 1 attempt)
     );
 
     if (paymentStatus.success) {
-      result += `✅ Payment Successful!\n\n`;
-      result += `Status: APPROVED\n`;
-      result += `Details: ${paymentStatus.data}\n\n`;
-      result += `🎉 Your investment has been completed successfully!`;
+      result = `╔════════════════════════════════════════════════════════════╗\n`;
+      result += `║  ✅ PAYMENT SUCCESSFUL                                     ║\n`;
+      result += `╠════════════════════════════════════════════════════════════╣\n`;
+      result += `║  Status: APPROVED                                          ║\n`;
+      result += `║                                                            ║\n`;
+      result += `║  🎉 Your investment is complete!                           ║\n`;
+      result += `║  💡 Track: fabits_get_basket_holdings                      ║\n`;
+      result += `╚════════════════════════════════════════════════════════════╝\n`;
     } else if (paymentStatus.status === 'REJECTED') {
-      result += `❌ Payment Failed\n\n`;
-      result += `Status: REJECTED\n`;
-      result += `Details: ${paymentStatus.data}\n\n`;
-      result += `Please try again or contact support.`;
+      result = `╔════════════════════════════════════════════════════════════╗\n`;
+      result += `║  ❌ PAYMENT FAILED                                         ║\n`;
+      result += `╠════════════════════════════════════════════════════════════╣\n`;
+      result += `║  Status: REJECTED                                          ║\n`;
+      result += `║                                                            ║\n`;
+      result += `║  Please try again or contact support.                      ║\n`;
+      result += `╚════════════════════════════════════════════════════════════╝\n`;
     } else {
-      result += `⚠️  Payment Status: Unknown\n\n`;
-      result += `The payment status could not be confirmed within ${maxAttempts * intervalSeconds} seconds.\n`;
-      result += `This doesn't mean the payment failed - it may still be processing.\n\n`;
-      result += `Please check your transaction history later.`;
+      // TIMEOUT or Still Pending
+      result = `╔════════════════════════════════════════════════════════════╗\n`;
+      result += `║  ⏳ PAYMENT PENDING                                        ║\n`;
+      result += `╠════════════════════════════════════════════════════════════╣\n`;
+      result += `║  Status: Awaiting Bank Confirmation                        ║\n`;
+      result += `║                                                            ║\n`;
+      result += `║  We haven't received confirmation yet.                     ║\n`;
+      result += `║  Please wait a few minutes and check again.                ║\n`;
+      result += `╚════════════════════════════════════════════════════════════╝\n`;
     }
 
     return result;
@@ -871,33 +882,21 @@ export async function completeLumpsumUPI(
 
     result += `💳 Step 2/3: UPI Payment Initiated\n\n`;
     result += `${paymentResponse.data.data?.responsestring || 'UPI payment request sent'}\n\n`;
-    result += `⏳ Step 3/3: Waiting for Payment Confirmation...\n\n`;
-    result += `Please approve the payment request on your UPI app (${upiId}).\n`;
-    result += `Checking payment status...\n\n`;
 
-    // Step 3: Poll payment status
-    console.error('\n=== STEP 3: POLL PAYMENT STATUS ===');
+    result += `╔════════════════════════════════════════════════════════════╗\n`;
+    result += `║  ⏳ ACTION REQUIRED                                        ║\n`;
+    result += `╠════════════════════════════════════════════════════════════╣\n`;
+    result += `║  Order Number: ${orderNumber}                            ║\n`;
+    result += `║                                                            ║\n`;
+    result += `║  1. Open your UPI app (${upiId})                          ║\n`;
+    result += `║  2. Approve the payment request for ${formatCurrency(amount)}          ║\n`;
+    result += `║  3. Come back here after 5 minutes                         ║\n`;
+    result += `║                                                            ║\n`;
+    result += `║  👉 Then ask me: "Check payment status for this order"     ║\n`;
+    result += `╚════════════════════════════════════════════════════════════╝\n\n`;
 
-    const paymentStatus = await pollPaymentStatus(client, clientCode, orderNumber);
-
-    if (paymentStatus.success) {
-      result += `✅ Payment Successful!\n\n`;
-      result += `Status: ${paymentStatus.data}\n`;
-      result += `Order Number: ${orderNumber}\n\n`;
-      result += `🎉 Your investment has been completed successfully!\n`;
-      result += `\n💡 Track your investment: Use fabits_get_transactions`;
-    } else if (paymentStatus.status === 'TIMEOUT') {
-      result += `⚠️  Payment Status: Pending\n\n`;
-      result += `We couldn't confirm your payment status within the timeout period.\n`;
-      result += `This doesn't mean the payment failed - it may still be processing.\n\n`;
-      result += `Order Number: ${orderNumber}\n\n`;
-      result += `💡 Check status later: Use fabits_get_transactions`;
-    } else {
-      result += `❌ Payment Failed\n\n`;
-      result += `Status: ${paymentStatus.data}\n`;
-      result += `Order Number: ${orderNumber}\n\n`;
-      result += `Please try again or contact support.`;
-    }
+    // Store order number in log
+    console.error('Pending Order:', orderNumber);
 
     return result;
   } catch (error) {
@@ -1557,40 +1556,21 @@ export async function investBasketOneTime(
 
     result += `💳 UPI Payment Request Sent\n\n`;
     result += `${paymentResponse.data.data?.responsestring || 'Please check your UPI app'}\n\n`;
-    result += `⏳ Waiting for payment confirmation...\n`;
-    result += `Please approve the payment request on your UPI app (${upiId}).\n\n`;
 
-    // Step 5: Poll payment status
-    console.error('\n=== STEP 4: POLL PAYMENT STATUS ===');
+    result += `╔════════════════════════════════════════════════════════════╗\n`;
+    result += `║  ⏳ ACTION REQUIRED                                        ║\n`;
+    result += `╠════════════════════════════════════════════════════════════╣\n`;
+    result += `║  Order(s): ${orderNumbers.join(', ')}             ║\n`;
+    result += `║                                                            ║\n`;
+    result += `║  1. Open your UPI app (${upiId})                          ║\n`;
+    result += `║  2. Approve the payment request for ${formatCurrency(totalAmount)}          ║\n`;
+    result += `║  3. Come back here after 5 minutes                         ║\n`;
+    result += `║                                                            ║\n`;
+    result += `║  👉 Then ask me: "Check payment status for these orders"   ║\n`;
+    result += `╚════════════════════════════════════════════════════════════╝\n\n`;
 
-    // For polling, we check status using the array of orders (backend supports checking status for list)
-    // Actually, pollPaymentStatus usually takes one ID. Let's check if we need to modify it.
-    // The paymentStatus endpoint takes { orderNo: [...] } as array too.
-
-    const paymentStatus = await pollPaymentStatus(client, clientCode.toUpperCase(), orderNumbers);
-
-    if (paymentStatus.success) {
-      result += `╔════════════════════════════════════════════════════════════╗\n`;
-      result += `║  ✅ PAYMENT SUCCESSFUL                                     ║\n`;
-      result += `╠════════════════════════════════════════════════════════════╣\n`;
-      result += `║  Orders: ${orderNumbers.length} orders processed                          ║\n`;
-      result += `║  Amount: ${formatCurrency(totalAmount).padEnd(48)}║\n`;
-      result += `║                                                            ║\n`;
-      result += `║  🎉 Your investment is complete!                           ║\n`;
-      result += `║  💡 Track: fabits_get_basket_holdings                      ║\n`;
-      result += `╚════════════════════════════════════════════════════════════╝\n`;
-    } else if (paymentStatus.status === 'TIMEOUT') {
-      result += `⚠️  Payment Status: Pending\n\n`;
-      result += `We couldn't confirm payment within the timeout period.\n`;
-      result += `This doesn't mean it failed - it may still be processing.\n\n`;
-      result += `Orders: ${orderNumbers.join(', ')}\n\n`;
-      result += `💡 Check later: fabits_get_transactions`;
-    } else {
-      result += `❌ Payment Failed\n\n`;
-      result += `Status: ${paymentStatus.data}\n`;
-      result += `Orders: ${orderNumbers.join(', ')}\n\n`;
-      result += `Please try again or contact support.`;
-    }
+    // Store context for check status (optional, but good for logs)
+    console.error('Pending Orders:', JSON.stringify(orderNumbers));
 
     return result;
   } catch (error) {

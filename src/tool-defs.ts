@@ -335,15 +335,7 @@ export const TOOLS: Tool[] = [
                 ...USER_ID_PROP,
                 order_number: {
                     type: 'string',
-                    description: 'Order number',
-                },
-                max_attempts: {
-                    type: 'number',
-                    description: 'Max attempts',
-                },
-                interval_seconds: {
-                    type: 'number',
-                    description: 'Polling interval',
+                    description: 'Order number(s). Can be comma-separated.',
                 },
             },
             required: ['user_id', 'order_number'],
