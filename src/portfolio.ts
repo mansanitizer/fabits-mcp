@@ -42,11 +42,18 @@ function formatDate(dateString: string): string {
 /**
  * Get user's complete portfolio with holdings
  */
+/**
+ * Get user's complete portfolio with holdings
+ * Fetches both Fabits managed assets and external linked assets
+ */
 export async function getPortfolio(tokenManager: TokenManager): Promise<string> {
   try {
     const client = await createAuthenticatedClient(tokenManager);
 
-    const response = await client.get<APIResponse<Holding[]>>(
+    console.error('\n=== PORTFOLIO REQUEST ===');
+    console.error('URL:', `${CONFIG.BASE_URL}${CONFIG.ENDPOINTS.HOLDINGS}`);
+
+    const response = await client.get<APIResponse<any>>(
       CONFIG.ENDPOINTS.HOLDINGS
     );
 
@@ -54,58 +61,114 @@ export async function getPortfolio(tokenManager: TokenManager): Promise<string> 
       throw new Error(response.data.response?.message || 'Failed to fetch portfolio');
     }
 
-    const holdings = response.data.data || [];
+    const data = response.data.data;
 
-    if (holdings.length === 0) {
-      return `📊 Your Portfolio is Empty\n\n` +
-             `Start investing to build your wealth!\n\n` +
-             `💡 Get started:\n` +
-             `• Search funds: Use fabits_search_funds\n` +
-             `• View recommendations: Use fabits_get_star_funds`;
+    // Initialize holding lists
+    let fabitsHoldings: Holding[] = [];
+    let externalHoldings: Holding[] = [];
+
+    // Flatten data if it's in the nested structure mentioned (though usually API returns flat or pre-grouped)
+    // Based on user feedback: logic depends on isOutsideData flag on individual items
+
+    let allHoldings: Holding[] = [];
+
+    if (Array.isArray(data)) {
+      allHoldings = data;
+    } else if (typeof data === 'object' && data !== null) {
+      // If data comes in as { mainData: [...] } or { contents: { mainData: [...] } }
+      // We try to find the array
+      allHoldings = data.mainData || data.holdings || [];
+
+      // If we previously tried to support split keys, we check them too just in case
+      if (data.fabitsHoldings) allHoldings = [...allHoldings, ...data.fabitsHoldings];
+      if (data.externalHoldings) allHoldings = [...allHoldings, ...data.externalHoldings];
     }
 
-    // Calculate totals
-    let totalInvested = 0;
-    let totalCurrentValue = 0;
+    // Split based on isOutsideData flag
+    // 0 = Fabits (Internal)
+    // 1 (or truthy/undefined in some contexts, but usually explicit 1) = External
+    fabitsHoldings = allHoldings.filter(h => h.isOutsideData === 0);
+    externalHoldings = allHoldings.filter(h => h.isOutsideData !== 0);
 
-    holdings.forEach((holding) => {
-      totalInvested += holding.investedValue || 0;
-      totalCurrentValue += holding.currentValue || 0;
-    });
+    if (fabitsHoldings.length === 0 && externalHoldings.length === 0) {
+      return `📊 Your Portfolio is Empty\n\n` +
+        `Start investing to build your wealth!\n\n` +
+        `💡 Get started:\n` +
+        `• Search funds: Use fabits_search_funds\n` +
+        `• View recommendations: Use fabits_get_star_funds`;
+    }
 
-    const totalReturns = totalCurrentValue - totalInvested;
-    const totalReturnsPercentage = totalInvested > 0
-      ? (totalReturns / totalInvested) * 100
-      : 0;
+    // Function to calculate totals for a list of holdings
+    const calculateTotals = (items: Holding[]) => {
+      let invested = 0;
+      let current = 0;
+      items.forEach(item => {
+        invested += item.investedValue || 0;
+        current += item.currentValue || 0;
+      });
+      return { invested, current, returns: current - invested };
+    };
+
+    const fabitsTotals = calculateTotals(fabitsHoldings);
+    const externalTotals = calculateTotals(externalHoldings);
+    const grandTotalInvested = fabitsTotals.invested + externalTotals.invested;
+    const grandTotalCurrent = fabitsTotals.current + externalTotals.current;
+    const grandTotalReturns = grandTotalCurrent - grandTotalInvested;
+    const grandTotalReturnsPercent = grandTotalInvested > 0 ? (grandTotalReturns / grandTotalInvested) * 100 : 0;
 
     // Build result
-    let result = `📊 Your Portfolio\n`;
+    let result = `📊 Your Portfolio Overview\n`;
     result += `${'='.repeat(50)}\n\n`;
 
-    result += `💰 Portfolio Summary\n`;
-    result += `Total Invested: ${formatCurrency(totalInvested)}\n`;
-    result += `Current Value: ${formatCurrency(totalCurrentValue)}\n`;
-    result += `Total Returns: ${formatCurrency(totalReturns)} (${formatPercentage(totalReturnsPercentage)})\n`;
+    // 1. Grand Total Summary
+    result += `💰 Total Net Worth\n`;
+    result += `Current Value: ${formatCurrency(grandTotalCurrent)}\n`;
+    result += `Total Invested: ${formatCurrency(grandTotalInvested)}\n`;
+    result += `Total Returns: ${formatCurrency(grandTotalReturns)} (${formatPercentage(grandTotalReturnsPercent)})\n\n`;
 
-    result += `\n📈 Holdings (${holdings.length} fund${holdings.length > 1 ? 's' : ''})\n\n`;
+    // 2. Fabits Managed Assets
+    if (fabitsHoldings.length > 0) {
+      const returnsPercent = fabitsTotals.invested > 0 ? (fabitsTotals.returns / fabitsTotals.invested) * 100 : 0;
 
-    holdings.forEach((holding, index) => {
-      const returnSign = holding.returns >= 0 ? '📈' : '📉';
+      result += `🚀 Fabits Investments (${fabitsHoldings.length})\n`;
+      result += `   Value: ${formatCurrency(fabitsTotals.current)} | Returns: ${formatCurrency(fabitsTotals.returns)} (${formatPercentage(returnsPercent)})\n`;
+      result += `   ${'-'.repeat(40)}\n`;
 
-      result += `${index + 1}. ${holding.fundName}\n`;
-      result += `   ${returnSign} Current: ${formatCurrency(holding.currentValue)} | `;
-      result += `Invested: ${formatCurrency(holding.investedValue)}\n`;
-      result += `   Returns: ${formatCurrency(holding.returns)} (${formatPercentage(holding.returnsPercentage)})\n`;
-      result += `   Units: ${holding.units.toFixed(4)} | Avg NAV: ₹${holding.avgNav.toFixed(2)} | `;
-      result += `Current NAV: ₹${holding.currentNav.toFixed(2)}\n`;
-      if (holding.folioNumber) result += `   Folio: ${holding.folioNumber}\n`;
-      result += '\n';
-    });
+      fabitsHoldings.forEach((holding, index) => {
+        const returnSign = holding.returns >= 0 ? '📈' : '📉';
+        result += `   ${index + 1}. ${holding.fundName}\n`;
+        result += `      ${returnSign} Current: ${formatCurrency(holding.currentValue)} | Invested: ${formatCurrency(holding.investedValue)}\n`;
+        result += `      Returns: ${formatCurrency(holding.returns)} (${formatPercentage(holding.returnsPercentage)})\n`;
+        result += `      Units: ${holding.units.toFixed(3)} | NAV: ₹${holding.currentNav.toFixed(2)}\n\n`;
+      });
+    }
 
-    result += `💡 Next actions:\n`;
+    // 3. External/Linked Assets
+    if (externalHoldings.length > 0) {
+      const returnsPercent = externalTotals.invested > 0 ? (externalTotals.returns / externalTotals.invested) * 100 : 0;
+
+      result += `🔗 External Linked Investments (${externalHoldings.length})\n`;
+      result += `   Value: ${formatCurrency(externalTotals.current)} | Returns: ${formatCurrency(externalTotals.returns)} (${formatPercentage(returnsPercent)})\n`;
+      result += `   (Imported from CAS/External sources)\n`;
+      result += `   ${'-'.repeat(40)}\n`;
+
+      externalHoldings.forEach((holding, index) => {
+        const returnSign = holding.returns >= 0 ? '📈' : '📉';
+        result += `   ${index + 1}. ${holding.fundName}\n`;
+        result += `      ${returnSign} Current: ${formatCurrency(holding.currentValue)} | Invested: ${formatCurrency(holding.investedValue)}\n`;
+        result += `      Returns: ${formatCurrency(holding.returns)} (${formatPercentage(holding.returnsPercentage)})\n`;
+        // Check if folio is available, often useful for external funds
+        if (holding.folioNumber) result += `      Folio: ${holding.folioNumber}\n`;
+        result += `      Units: ${holding.units.toFixed(3)} | NAV: ₹${holding.currentNav.toFixed(2)}\n\n`;
+      });
+    }
+
+    result += `💡 Actions:\n`;
+    if (fabitsHoldings.length > 0) {
+      result += `• Redeem Fabits funds: Use fabits_redeem\n`;
+    }
     result += `• View SIPs: Use fabits_get_sips\n`;
-    result += `• Transaction history: Use fabits_get_transactions\n`;
-    result += `• Redeem funds: Use fabits_redeem`;
+    result += `• Transaction history: Use fabits_get_transactions`;
 
     return result;
   } catch (error) {
@@ -135,8 +198,8 @@ export async function getSIPs(tokenManager: TokenManager): Promise<string> {
 
     if (sips.length === 0) {
       return `📅 No Active SIPs\n\n` +
-             `Start a SIP to invest regularly and benefit from rupee cost averaging!\n\n` +
-             `💡 Start SIP: Use fabits_start_sip`;
+        `Start a SIP to invest regularly and benefit from rupee cost averaging!\n\n` +
+        `💡 Start SIP: Use fabits_start_sip`;
     }
 
     let result = `📅 Your Active SIPs\n`;
@@ -236,8 +299,8 @@ export async function getTransactions(
 
     if (orders.length === 0) {
       return `📜 No Transactions Yet\n\n` +
-             `Your transaction history will appear here once you make investments.\n\n` +
-             `💡 Start investing: Use fabits_search_funds or fabits_get_star_funds`;
+        `Your transaction history will appear here once you make investments.\n\n` +
+        `💡 Start investing: Use fabits_search_funds or fabits_get_star_funds`;
     }
 
     // Group orders by status for compact display
@@ -378,10 +441,10 @@ export async function getBasketHoldings(tokenManager: TokenManager): Promise<str
 
     if (holdings.length === 0) {
       return `🗂️  No Basket Holdings\n\n` +
-             `You haven't invested in any baskets yet.\n\n` +
-             `💡 Get started:\n` +
-             `• View baskets: Use fabits_get_baskets\n` +
-             `• Invest in basket: Use fabits_invest_basket`;
+        `You haven't invested in any baskets yet.\n\n` +
+        `💡 Get started:\n` +
+        `• View baskets: Use fabits_get_baskets\n` +
+        `• Invest in basket: Use fabits_invest_basket`;
     }
 
     // Group holdings by basket
@@ -514,13 +577,13 @@ export async function getActionPlans(tokenManager: TokenManager): Promise<string
 
     if (actionPlans.length === 0) {
       return `📋 No Action Plans\n\n` +
-             `You haven't created any action plans yet.\n\n` +
-             `💡 Action plans help you organize investments for specific financial goals like:\n` +
-             `• Emergency Fund\n` +
-             `• Retirement Planning\n` +
-             `• Children's Education\n` +
-             `• General Savings\n\n` +
-             `Create an action plan on the Fabits app to get started!`;
+        `You haven't created any action plans yet.\n\n` +
+        `💡 Action plans help you organize investments for specific financial goals like:\n` +
+        `• Emergency Fund\n` +
+        `• Retirement Planning\n` +
+        `• Children's Education\n` +
+        `• General Savings\n\n` +
+        `Create an action plan on the Fabits app to get started!`;
     }
 
     let result = `📋 Your Action Plans (Read-Only)\n`;
@@ -531,8 +594,8 @@ export async function getActionPlans(tokenManager: TokenManager): Promise<string
 
     actionPlans.forEach((plan: any, index: number) => {
       const statusIcon = plan.basketStatus === 'DRAFT' ? '📝' :
-                        plan.oneTimeStatus === 'COMPLETED' ? '✅' :
-                        plan.oneTimeStatus === 'PENDING' ? '⏳' : '📊';
+        plan.oneTimeStatus === 'COMPLETED' ? '✅' :
+          plan.oneTimeStatus === 'PENDING' ? '⏳' : '📊';
 
       result += `${index + 1}. ${statusIcon} ${plan.customerBasketName}\n`;
       result += `   Plan ID: ${plan.customerBasketInvestmentId}\n`;

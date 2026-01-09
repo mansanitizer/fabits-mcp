@@ -532,22 +532,7 @@ export const TOOLS: Tool[] = [
         },
     },
 
-    // Investwell Integration Tools
-    {
-        name: 'investwell_test_transactions',
-        description: 'Fetch transactions from Investwell for the authenticated user using their PAN. Requires user to be logged in first. Returns simplified transaction list including date, scheme, type, and amount.',
-        inputSchema: {
-            type: 'object',
-            properties: {
-                ...USER_ID_PROP,
-                year: {
-                    type: 'number',
-                    description: 'Year to fetch transactions for (default: current year). Example: 2025',
-                },
-            },
-            required: ['user_id'],
-        },
-    },
+
 
     // Standalone Mandate Tools
     {

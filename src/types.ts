@@ -134,6 +134,8 @@ export interface Holding {
   returns: number;
   returnsPercentage: number;
   folioNumber?: string;
+  isOutsideData?: number; // 0 = Internal/Fabits, 1 = External
+  holdingType?: string;
 }
 
 export interface SIP {
