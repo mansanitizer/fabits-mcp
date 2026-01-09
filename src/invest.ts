@@ -910,6 +910,123 @@ export async function completeLumpsumUPI(
 }
 
 /**
+ * Complete Netbanking lumpsum investment
+ * Returns a payment link for the user to complete the transaction
+ */
+export async function completeLumpsumNetbanking(
+  tokenManager: TokenManager,
+  schemeCode: string,
+  amount: number,
+  phoneNumber: string
+): Promise<string> {
+  try {
+    const client = await createAuthenticatedClient(tokenManager);
+
+    // Get client code from token (uppercase)
+    const clientCode = await getClientCode(tokenManager);
+
+    // Remove +91 from phone number
+    const phoneOnly = getPhoneWithoutCountryCode(phoneNumber);
+
+    // Step 1: Place order
+    console.error('\n=== STEP 1: PLACE ORDER (NETBANKING) ===');
+    console.error('URL:', `${CONFIG.BASE_URL}${CONFIG.ENDPOINTS.PLACE_ORDER}`);
+
+    const orderPayload = {
+      orderType: 'PURCHASE',
+      schemeCode: schemeCode,
+      clientCode: clientCode,
+      orderVal: amount,
+      phoneNumber: phoneOnly,
+      transactionMode: 'LUMPSUM',
+    };
+
+    console.error('Order Payload:', JSON.stringify(orderPayload, null, 2));
+
+    const orderResponse = await client.post<any>(
+      CONFIG.ENDPOINTS.PLACE_ORDER,
+      orderPayload
+    );
+
+    console.error('\n=== ORDER RESPONSE ===');
+    console.error('Response:', JSON.stringify(orderResponse.data, null, 2));
+
+    if (orderResponse.data.status !== 'SUCCESS' && orderResponse.data.code !== '200') {
+      throw new Error(orderResponse.data.message || 'Order placement failed');
+    }
+
+    // Extract order number
+    const responseData = orderResponse.data.data;
+    const orderParts = responseData.split('|');
+    const orderNumber = orderParts[2];
+
+    console.error('Order Number:', orderNumber);
+
+    let result = `✅ Step 1/2: Order Placed\n\n`;
+    result += `Order Number: ${orderNumber}\n`;
+    result += `Amount: ${formatCurrency(amount)}\n\n`;
+
+    // Step 2: Initiate Netbanking payment
+    console.error('\n=== STEP 2: INITIATE NETBANKING PAYMENT ===');
+    console.error('URL:', `${CONFIG.BASE_URL}${CONFIG.ENDPOINTS.ONE_TIME_PAYMENT}`);
+
+    const paymentPayload = {
+      clientCode: clientCode,
+      orderNumber: orderNumber,
+      totalAmount: amount,
+      modeOfPayment: 'DIRECT',
+      loopbackURL: 'https://mywealth.fabits.com/dashboard/mutual-funds/order-payment/status',
+    };
+
+    console.error('Payment Payload:', JSON.stringify(paymentPayload, null, 2));
+
+    const paymentResponse = await client.post<any>(
+      CONFIG.ENDPOINTS.ONE_TIME_PAYMENT,
+      paymentPayload
+    );
+
+    console.error('\n=== PAYMENT RESPONSE ===');
+    console.error('Response:', JSON.stringify(paymentResponse.data, null, 2));
+
+    if (paymentResponse.data.status !== 'SUCCESS') {
+      throw new Error(paymentResponse.data.message || 'Payment initiation failed');
+    }
+
+    const paymentLink = paymentResponse.data.data?.responsestring;
+
+    if (!paymentLink) {
+      throw new Error('No payment link received from payment gateway');
+    }
+
+    result += `💳 Step 2/2: Netbanking Link Generated\n\n`;
+    result += `Please click the link below to complete your payment via Netbanking:\n\n`;
+    result += `${paymentLink}\n\n`;
+
+    result += `╔════════════════════════════════════════════════════════════╗\n`;
+    result += `║  ⏳ ACTION REQUIRED                                        ║\n`;
+    result += `╠════════════════════════════════════════════════════════════╣\n`;
+    result += `║  1. Click the link above                                   ║\n`;
+    result += `║  2. Login to your bank and complete payment                ║\n`;
+    result += `║  3. Come back here after completion                        ║\n`;
+    result += `║                                                            ║\n`;
+    result += `║  👉 Then ask me: "Check payment status for this order"     ║\n`;
+    result += `╚════════════════════════════════════════════════════════════╝\n\n`;
+
+    // Store order number in log
+    console.error('Pending Order:', orderNumber);
+
+    return result;
+  } catch (error) {
+    console.error('\n=== COMPLETE NETBANKING LUMPSUM ERROR ===');
+    console.error('Error:', error);
+    if (error instanceof Error) {
+      throw new Error(`Netbanking investment failed: ${error.message}`);
+    }
+    throw error;
+  }
+}
+
+/**
  * Calculate SIP start date (next month on the specified date)
  */
 function calculateSIPStartDate(sipDate: number): string {

@@ -327,6 +327,29 @@ export const TOOLS: Tool[] = [
         },
     },
     {
+        name: 'fabits_complete_lumpsum_netbanking',
+        description: 'Complete Lumpsum investment via Netbanking. Returns a payment link.',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                ...USER_ID_PROP,
+                scheme_code: {
+                    type: 'string',
+                    description: 'BSE scheme code',
+                },
+                amount: {
+                    type: 'number',
+                    description: 'Investment amount',
+                },
+                phone_number: {
+                    type: 'string',
+                    description: 'User phone number',
+                },
+            },
+            required: ['user_id', 'scheme_code', 'amount', 'phone_number'],
+        },
+    },
+    {
         name: 'fabits_check_payment_status',
         description: 'Check payment status for an order.',
         inputSchema: {

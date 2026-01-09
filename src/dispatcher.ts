@@ -1,7 +1,7 @@
 
 import { TokenManager, requestOTP, verifyOTP, getAuthStatus, refreshAccessToken, logout } from './auth.js';
 import { searchFunds, getFundDetails, getStarFunds } from './funds.js';
-import { investLumpsum, startSIP, redeemFund, investBasket, getAllBaskets, sendTransactionalOTP, verifyTransactionalOTP, investLumpsumUPI, completeLumpsumUPI, checkPaymentStatus, setupBasketMandate, investBasketSIP, investBasketOneTime, registerMandate, checkMandateStatus, findUserMandates } from './invest.js';
+import { investLumpsum, startSIP, redeemFund, investBasket, getAllBaskets, sendTransactionalOTP, verifyTransactionalOTP, investLumpsumUPI, completeLumpsumUPI, completeLumpsumNetbanking, checkPaymentStatus, setupBasketMandate, investBasketSIP, investBasketOneTime, registerMandate, checkMandateStatus, findUserMandates } from './invest.js';
 import { getPortfolio, getSIPs, getTransactions, cancelSIP, getBasketHoldings, getActionPlans } from './portfolio.js';
 import { testInvestwellTransactions } from './investwell.js';
 import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
@@ -147,6 +147,16 @@ export async function dispatchToolCall(name: string, args: any, tokenManager: To
                 args.scheme_code as string,
                 args.amount as number,
                 args.upi_id as string,
+                args.phone_number as string
+            );
+            return { content: [{ type: 'text', text: result }] };
+        }
+
+        case 'fabits_complete_lumpsum_netbanking': {
+            const result = await completeLumpsumNetbanking(
+                tokenManager,
+                args.scheme_code as string,
+                args.amount as number,
                 args.phone_number as string
             );
             return { content: [{ type: 'text', text: result }] };
