@@ -95,45 +95,69 @@ async function silentRefreshToken(tokenManager: TokenManager): Promise<string> {
   console.error('\n=== AUTO REFRESH TOKEN ===');
   console.error('Attempting silent token refresh...');
 
-  try {
-    const response = await axios.post<LoginResponse>(
-      `${CONFIG.BASE_URL}${CONFIG.ENDPOINTS.REFRESH_TOKEN}`,
-      { refresh_token: tokenData.refreshToken },
-      {
-        timeout: CONFIG.REQUEST_TIMEOUT,
-        headers: {
-          'Content-Type': 'application/json',
-        },
+  const maxRetries = 3;
+  let lastError: any;
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      if (attempt > 1) {
+        console.error(`Retry attempt ${attempt}/${maxRetries}...`);
+        // Wait 1s between retries
+        await new Promise(resolve => setTimeout(resolve, 1000));
       }
-    );
 
-    if (!response.data.access_token) {
-      throw new Error('REFRESH_FAILED');
+      const response = await axios.post<LoginResponse>(
+        `${CONFIG.BASE_URL}${CONFIG.ENDPOINTS.REFRESH_TOKEN}`,
+        { refresh_token: tokenData.refreshToken },
+        {
+          timeout: CONFIG.REQUEST_TIMEOUT,
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      if (!response.data.access_token) {
+        throw new Error('REFRESH_FAILED');
+      }
+
+      // Decode new JWT to extract user info
+      const decodedToken = decodeJWT(response.data.access_token);
+
+      // Update stored token
+      const updatedAuthToken: AuthToken = {
+        token: response.data.access_token,
+        refreshToken: response.data.refresh_token || tokenData.refreshToken,
+        phoneNumber: decodedToken.phoneNumber || tokenData.phoneNumber,
+        clientCode: decodedToken.uid || tokenData.clientCode,
+        panNumber: decodedToken.panNumber || tokenData.panNumber,
+      };
+
+      await tokenManager.saveToken(updatedAuthToken);
+
+      console.error('✅ Token refreshed successfully');
+      return updatedAuthToken.token;
+    } catch (error) {
+      lastError = error;
+      console.error(`❌ Token refresh attempt ${attempt} failed:`, error instanceof Error ? error.message : String(error));
+
+      if (axios.isAxiosError(error)) {
+        // If 401/403, refresh token is definitely invalid, stop retrying
+        if (error.response?.status === 401 || error.response?.status === 403) {
+          throw new Error('REFRESH_TOKEN_EXPIRED');
+        }
+        // If 400 (Bad Request), unlikely to succeed on retry
+        if (error.response?.status === 400) {
+          throw new Error('REFRESH_FAILED');
+        }
+      }
+
+      // For other errors (5xx, network), continue to next iteration
     }
-
-    // Decode new JWT to extract user info
-    const decodedToken = decodeJWT(response.data.access_token);
-
-    // Update stored token
-    const updatedAuthToken: AuthToken = {
-      token: response.data.access_token,
-      refreshToken: response.data.refresh_token || tokenData.refreshToken,
-      phoneNumber: decodedToken.phoneNumber || tokenData.phoneNumber,
-      clientCode: decodedToken.uid || tokenData.clientCode,
-      panNumber: decodedToken.panNumber || tokenData.panNumber,
-    };
-
-    await tokenManager.saveToken(updatedAuthToken);
-
-    console.error('✅ Token refreshed successfully');
-    return updatedAuthToken.token;
-  } catch (error) {
-    console.error('❌ Token refresh failed:', error);
-    if (axios.isAxiosError(error) && (error.response?.status === 401 || error.response?.status === 403)) {
-      throw new Error('REFRESH_TOKEN_EXPIRED');
-    }
-    throw new Error('REFRESH_FAILED');
   }
+
+  // If we exhausted retries
+  throw lastError || new Error('REFRESH_FAILED');
 }
 
 /**
