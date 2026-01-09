@@ -683,11 +683,11 @@ export async function investLumpsumUPI(
     // Step 1: Verify bank details
     console.error('\n=== STEP 1: VERIFY BANK DETAILS ===');
     console.error('URL:', `${CONFIG.BASE_URL}${CONFIG.ENDPOINTS.BANK_DETAILS}`);
-    
+
     const bankResponse = await client.get<any>(CONFIG.ENDPOINTS.BANK_DETAILS);
-    
+
     console.error('Bank Details Response:', JSON.stringify(bankResponse.data, null, 2));
-    
+
     if (bankResponse.data.response?.status !== 'SUCCESS') {
       throw new Error('Bank account not linked. Please add your bank details in the Fabits app first.');
     }
@@ -757,7 +757,7 @@ export async function completeLumpsumUPI(
 
     // Get client code from token (uppercase)
     const clientCode = await getClientCode(tokenManager);
-    
+
     // Remove +91 from phone number
     const phoneOnly = getPhoneWithoutCountryCode(phoneNumber);
 
@@ -911,54 +911,77 @@ async function getActionPlanById(client: any, planId: number): Promise<any> {
 }
 
 /**
- * Poll mandate status until "RECEIVED BY EXCHANGE"
+ * Poll mandate status until "RECEIVED BY EXCHANGE" or "APPROVED" or "UNDER PROCESSING"
  */
 async function pollMandateStatus(
   client: any,
   mandateId: string,
-  maxAttempts: number = 30,
+  clientCode: string,
+  maxAttempts: number = 60,
   intervalMs: number = 10000
 ): Promise<{ success: boolean; status: string; data: any }> {
   console.error('\n=== POLLING MANDATE STATUS ===');
   console.error('Mandate ID:', mandateId);
+  console.error('Client Code:', clientCode);
   console.error('Max Attempts:', maxAttempts);
   console.error('Interval:', intervalMs, 'ms');
+
+  // Calculate date range for mandate details query
+  const today = new Date();
+  const toDate = today.toLocaleDateString('en-GB').replace(/\//g, '/');
+  const fromDate = '01/01/2024'; // Start from beginning of year
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
       console.error(`\nAttempt ${attempt}/${maxAttempts}`);
 
+      // Payload matches frontend: { fromDate, toDate, clientCode, mandateId }
+      const mandateDetailsPayload = {
+        fromDate,
+        toDate,
+        clientCode,
+        mandateId,
+      };
+
+      console.error('Request Payload:', JSON.stringify(mandateDetailsPayload, null, 2));
+
       const response = await client.post(
         CONFIG.ENDPOINTS.MANDATE_DETAILS,
-        { mandateId }
+        mandateDetailsPayload
       );
 
       console.error('Response:', JSON.stringify(response.data, null, 2));
 
-      const mandateStatus = response.data.data?.mandateStatus;
+      // Frontend checks response.MandateDetails[0].status
+      const mandateDetails = response.data?.MandateDetails?.[0] || response.data?.data?.MandateDetails?.[0];
+      const mandateStatus = mandateDetails?.status || response.data?.data?.mandateStatus;
 
-      // Check if mandate is received by exchange
-      if (mandateStatus === 'RECEIVED BY EXCHANGE') {
-        console.error('✅ Mandate received by exchange!');
+      console.error('Mandate Status:', mandateStatus);
+
+      // Check if mandate is approved (matches frontend logic)
+      if (mandateStatus === 'RECEIVED BY EXCHANGE' ||
+        mandateStatus === 'APPROVED' ||
+        mandateStatus === 'UNDER PROCESSING') {
+        console.error('\u2705 Mandate approved/processing!');
         return {
           success: true,
           status: mandateStatus,
-          data: response.data.data,
+          data: mandateDetails || response.data.data,
         };
       }
 
       // Check if mandate failed
       if (mandateStatus === 'FAILED' || mandateStatus === 'REJECTED') {
-        console.error('❌ Mandate failed!');
+        console.error('\u274c Mandate failed!');
         return {
           success: false,
           status: mandateStatus,
-          data: response.data.data,
+          data: mandateDetails || response.data.data,
         };
       }
 
-      // Still pending, wait and retry
-      console.error(`⏳ Mandate status: ${mandateStatus}, retrying...`);
+      // Still pending (NEW or null), wait and retry
+      console.error(`\u23f3 Mandate status: ${mandateStatus || 'NEW'}, retrying...`);
       await new Promise((resolve) => setTimeout(resolve, intervalMs));
     } catch (error) {
       console.error('Error polling mandate status:', error);
@@ -968,7 +991,7 @@ async function pollMandateStatus(
   }
 
   // Timeout reached
-  console.error('⚠️  Mandate status polling timeout');
+  console.error('\u26a0\ufe0f  Mandate status polling timeout');
   return {
     success: false,
     status: 'TIMEOUT',
@@ -1086,16 +1109,21 @@ export async function setupBasketMandate(
     }
 
     // Step 2: Register mandate
+    // Frontend payload: { clientCode, amount, sipStartDate, mandateType }
+    // Note: Frontend does NOT send accountNumber, ifscCode, accountType
     console.error('\n=== STEP 2: REGISTER MANDATE ===');
     console.error('URL:', `${CONFIG.BASE_URL}${CONFIG.ENDPOINTS.MANDATE_REGISTRATION}`);
 
+    // Calculate SIP start date (next month) in DD/MM/YYYY format
+    const today = new Date();
+    const nextMonth = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+    const sipStartDate = nextMonth.toLocaleDateString('en-GB').replace(/\//g, '/');
+
     const mandatePayload = {
       clientCode,
-      mandateType,
-      amount: mandateAmount,
-      accountNumber,
-      accountType,
-      ifscCode: ifsc,
+      amount: mandateAmount.toString(), // Frontend sends as string
+      sipStartDate,
+      mandateType, // 'UNIVERSAL' (from frontend)
     };
 
     console.error('Mandate Payload:', JSON.stringify(mandatePayload, null, 2));
@@ -1131,12 +1159,14 @@ export async function setupBasketMandate(
     result += `\n`;
 
     // Step 3: Get e-mandate auth URL
+    // Frontend payload includes loopBackUrl
     console.error('\n=== STEP 3: GET E-MANDATE AUTH URL ===');
     console.error('URL:', `${CONFIG.BASE_URL}${CONFIG.ENDPOINTS.EMANDATE_AUTH_URL}`);
 
     const authUrlPayload = {
       clientCode,
       mandateId,
+      loopBackUrl: 'https://mywealth.fabits.com/dashboard/mutual-funds/mandate', // Required by frontend
     };
 
     console.error('Auth URL Payload:', JSON.stringify(authUrlPayload, null, 2));
@@ -1162,12 +1192,12 @@ export async function setupBasketMandate(
     result += `Auth URL: ${authUrl}\n\n`;
     result += `⚠️  Please open this URL in your browser and complete the e-mandate authentication.\n\n`;
 
-    // Step 4: Poll mandate status
+    // Step 4: Poll mandate status (60 attempts x 10 seconds = 10 minutes, matching frontend)
     console.error('\n=== STEP 4: POLL MANDATE STATUS ===');
-    result += `⏳ Step 4: Waiting for mandate confirmation...\n`;
-    result += `Checking mandate status every 10 seconds (max 5 minutes)...\n\n`;
+    result += `\u23f3 Step 4: Waiting for mandate confirmation...\n`;
+    result += `Checking mandate status every 10 seconds (max 10 minutes)...\n\n`;
 
-    const mandateStatus = await pollMandateStatus(client, mandateId, 30, 10000);
+    const mandateStatus = await pollMandateStatus(client, mandateId, clientCode, 60, 10000);
 
     if (mandateStatus.success) {
       result += `✅ Mandate Setup Complete!\n\n`;

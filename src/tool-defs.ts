@@ -336,7 +336,7 @@ export const TOOLS: Tool[] = [
     },
     {
         name: 'fabits_setup_basket_mandate',
-        description: 'Setup e-mandate for action plan SIP. Uses Savings Bank account with XSIP mandate type.',
+        description: 'Setup e-mandate for action plan SIP. Uses Savings Bank account with UNIVERSAL mandate type.',
         inputSchema: {
             type: 'object',
             properties: {

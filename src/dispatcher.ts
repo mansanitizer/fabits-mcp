@@ -158,7 +158,7 @@ export async function dispatchToolCall(name: string, args: any, tokenManager: To
         }
 
         case 'fabits_setup_basket_mandate': {
-            // Hardcoded: account_type='SB', mandate_type='XSIP'
+            // Hardcoded: account_type='SB', mandate_type='UNIVERSAL' (matching frontend)
             const result = await setupBasketMandate(
                 tokenManager,
                 args.plan_id as number,
@@ -168,7 +168,7 @@ export async function dispatchToolCall(name: string, args: any, tokenManager: To
                 args.bank_account_number as string | undefined,
                 args.ifsc_code as string | undefined,
                 'SB', // Always Savings Bank
-                'XSIP' // Always XSIP mandate
+                'UNIVERSAL' // Always UNIVERSAL mandate (matching frontend)
             );
             return { content: [{ type: 'text', text: result }] };
         }
