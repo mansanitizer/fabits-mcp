@@ -1,0 +1,1340 @@
+{
+    "info": {
+        "name": "Fabits MyWealth API Collection",
+        "_postman_id": "fabits-mywealth-api-collection",
+        "description": "Complete API collection for Fabits MyWealth Platform - Includes Auth, Mutual Funds, Baskets, SIPs, Payments, Portfolio, Plans, and more",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "auth": {
+        "type": "bearer",
+        "bearer": [
+            {
+                "key": "token",
+                "value": "{{auth_token}}",
+                "type": "string"
+            }
+        ]
+    },
+    "variable": [
+        {
+            "key": "base_url",
+            "value": "https://apimywealth.fabits.com",
+            "type": "string"
+        }
+    ],
+    "item": [
+        {
+            "name": "Authentication",
+            "description": "Authentication and user management endpoints",
+            "item": [
+                {
+                    "name": "Login - Validate User",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"phoneNumber\": \"9876543210\",\n  \"otp\": \"123456\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/customerservice/v2/api/customer/validate",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "customerservice",
+                                "v2",
+                                "api",
+                                "customer",
+                                "validate"
+                            ]
+                        },
+                        "description": "Validates user OTP and returns authentication token"
+                    },
+                    "response": []
+                },
+                {
+                    "name": "SignUp - Create New User",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"phoneNumber\": \"9876543210\",\n  \"email\": \"user@example.com\",\n  \"name\": \"John Doe\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/customerservice/api/customer/signup",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "customerservice",
+                                "api",
+                                "customer",
+                                "signup"
+                            ]
+                        },
+                        "description": "Creates a new user account"
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get User KYC Status",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/customerservice/api/hyperverge/checkKycInitiated",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "customerservice",
+                                "api",
+                                "hyperverge",
+                                "checkKycInitiated"
+                            ]
+                        },
+                        "description": "Check if KYC has been initiated for the user"
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get Customer KYC Statuses",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/customerservice/api/customer/fetchCustomerKycStatuses?kycPhoneNumber={{phone_number}}",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "customerservice",
+                                "api",
+                                "customer",
+                                "fetchCustomerKycStatuses"
+                            ],
+                            "query": [
+                                {
+                                    "key": "kycPhoneNumber",
+                                    "value": "{{phone_number}}"
+                                }
+                            ]
+                        },
+                        "description": "Fetch KYC statuses for a customer by phone number"
+                    },
+                    "response": []
+                }
+            ]
+        },
+        {
+            "name": "Mutual Funds",
+            "description": "Mutual fund data, search, and information endpoints",
+            "item": [
+                {
+                    "name": "Get All Mutual Funds",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/mutualfundservice/api/mfData/allFunds",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "mutualfundservice",
+                                "api",
+                                "mfData",
+                                "allFunds"
+                            ]
+                        },
+                        "description": "Retrieve all available mutual funds"
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Search Mutual Funds",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/mutualfundservice/api/mfData/allFunds?search={{search_query}}",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "mutualfundservice",
+                                "api",
+                                "mfData",
+                                "allFunds"
+                            ],
+                            "query": [
+                                {
+                                    "key": "search",
+                                    "value": "{{search_query}}"
+                                }
+                            ]
+                        },
+                        "description": "Search for mutual funds by name or keyword"
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get Fund Chart Data",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/mutualfundservice/api/mfData/chartData/{{fund_id}}",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "mutualfundservice",
+                                "api",
+                                "mfData",
+                                "chartData",
+                                "{{fund_id}}"
+                            ]
+                        },
+                        "description": "Get historical chart data for a specific mutual fund"
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get Fund Main Info",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/mutualfundservice/api/mfData/mainInfo/{{fund_id}}",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "mutualfundservice",
+                                "api",
+                                "mfData",
+                                "mainInfo",
+                                "{{fund_id}}"
+                            ]
+                        },
+                        "description": "Get main information for a specific mutual fund"
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get Fund General Info",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/mutualfundservice/api/mfData/generalInfo/{{fund_id}}",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "mutualfundservice",
+                                "api",
+                                "mfData",
+                                "generalInfo",
+                                "{{fund_id}}"
+                            ]
+                        },
+                        "description": "Get general information for a specific mutual fund"
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get BSE SIP Data",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/mutualfundservice/api/mfData/bseSIPData/{{fund_id}}",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "mutualfundservice",
+                                "api",
+                                "mfData",
+                                "bseSIPData",
+                                "{{fund_id}}"
+                            ]
+                        },
+                        "description": "Get BSE SIP dates and information for a mutual fund"
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get Fabits Star Funds",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/mutualfundservice/api/mfData/fabStarFunds",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "mutualfundservice",
+                                "api",
+                                "mfData",
+                                "fabStarFunds"
+                            ]
+                        },
+                        "description": "Get Fabits recommended star funds"
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get Recently Viewed Funds",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/mutualfundservice/api/mfData/recentlyViewed",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "mutualfundservice",
+                                "api",
+                                "mfData",
+                                "recentlyViewed"
+                            ]
+                        },
+                        "description": "Get user's recently viewed mutual funds"
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Add Recently Viewed Fund",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"fundId\": \"{{fund_id}}\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/mutualfundservice/api/mfData/recentlyViewedMF",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "mutualfundservice",
+                                "api",
+                                "mfData",
+                                "recentlyViewedMF"
+                            ]
+                        },
+                        "description": "Add a fund to recently viewed list"
+                    },
+                    "response": []
+                }
+            ]
+        },
+        {
+            "name": "Mutual Fund Orders",
+            "description": "Place orders, holdings, and order history for mutual funds",
+            "item": [
+                {
+                    "name": "Get Active SIPs",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/mutualfundservice/api/mutualFund/activeSIPs",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "mutualfundservice",
+                                "api",
+                                "mutualFund",
+                                "activeSIPs"
+                            ]
+                        },
+                        "description": "Get all active SIP orders"
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get Holdings",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/mutualfundservice/api/mutualFund/holdings",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "mutualfundservice",
+                                "api",
+                                "mutualFund",
+                                "holdings"
+                            ]
+                        },
+                        "description": "Get user's mutual fund holdings"
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get Order History",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/mutualfundservice/api/mutualFund/orderHistory",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "mutualfundservice",
+                                "api",
+                                "mutualFund",
+                                "orderHistory"
+                            ]
+                        },
+                        "description": "Get user's mutual fund order history"
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Place Order",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"fundId\": \"{{fund_id}}\",\n  \"amount\": 5000,\n  \"orderType\": \"PURCHASE\",\n  \"transactionMode\": \"LUMPSUM\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/mutualfundservice/api/bseStar/mfOrder/order",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "mutualfundservice",
+                                "api",
+                                "bseStar",
+                                "mfOrder",
+                                "order"
+                            ]
+                        },
+                        "description": "Place a mutual fund order (lumpsum or SIP)"
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Redeem Order",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"fundId\": \"{{fund_id}}\",\n  \"units\": 10,\n  \"redemptionType\": \"PARTIAL\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/mutualfundservice/api/bseStar/mfOrder/redeemOrder",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "mutualfundservice",
+                                "api",
+                                "bseStar",
+                                "mfOrder",
+                                "redeemOrder"
+                            ]
+                        },
+                        "description": "Redeem mutual fund units"
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Verify Transactional OTP",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"phoneNumber\": \"{{phone_number}}\",\n  \"otp\": \"123456\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/mutualfundservice/api/mutualFund/verifyTransactionalOtp",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "mutualfundservice",
+                                "api",
+                                "mutualFund",
+                                "verifyTransactionalOtp"
+                            ]
+                        },
+                        "description": "Verify OTP for mutual fund transactions"
+                    },
+                    "response": []
+                }
+            ]
+        },
+        {
+            "name": "Mutual Fund Baskets",
+            "description": "Basket-based mutual fund investments and management",
+            "item": [
+                {
+                    "name": "Get All Baskets",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/mutualfundservice/api/basket",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "mutualfundservice",
+                                "api",
+                                "basket"
+                            ]
+                        },
+                        "description": "Get all available mutual fund baskets"
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get User Created Baskets",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/mutualfundservice/api/basket/getAllUserCreatedBasket",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "mutualfundservice",
+                                "api",
+                                "basket",
+                                "getAllUserCreatedBasket"
+                            ]
+                        },
+                        "description": "Get all user-created custom baskets"
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get Basket Holdings",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/mutualfundservice/api/basket/holdings",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "mutualfundservice",
+                                "api",
+                                "basket",
+                                "holdings"
+                            ]
+                        },
+                        "description": "Get user's basket holdings"
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get Basket Order History",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/mutualfundservice/api/basket/orderHistory",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "mutualfundservice",
+                                "api",
+                                "basket",
+                                "orderHistory"
+                            ]
+                        },
+                        "description": "Get basket order history"
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get Subsequent One Time Orders",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/mutualfundservice/api/basket/subsequentOneTimeOrder",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "mutualfundservice",
+                                "api",
+                                "basket",
+                                "subsequentOneTimeOrder"
+                            ]
+                        },
+                        "description": "Get subsequent one-time order baskets"
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Place Basket One Time Order",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"basketId\": \"{{basket_id}}\",\n  \"amount\": 10000\n}"
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/mutualfundservice/api/basket/oneTimeOrder",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "mutualfundservice",
+                                "api",
+                                "basket",
+                                "oneTimeOrder"
+                            ]
+                        },
+                        "description": "Place a one-time order for a basket"
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Place Multi Basket One Time Order",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"baskets\": [\n    {\n      \"basketId\": \"basket1\",\n      \"amount\": 5000\n    },\n    {\n      \"basketId\": \"basket2\",\n      \"amount\": 5000\n    }\n  ]\n}"
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/mutualfundservice/api/basket/multiBasketOneTimeOrder",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "mutualfundservice",
+                                "api",
+                                "basket",
+                                "multiBasketOneTimeOrder"
+                            ]
+                        },
+                        "description": "Place one-time orders for multiple baskets"
+                    },
+                    "response": []
+                }
+            ]
+        },
+        {
+            "name": "SIPs Management",
+            "description": "SIP operations and cancellations",
+            "item": [
+                {
+                    "name": "Get User SIPs",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/planservice/api/portfolio/sips",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "planservice",
+                                "api",
+                                "portfolio",
+                                "sips"
+                            ]
+                        },
+                        "description": "Get all user SIPs"
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Cancel XSIP",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"sipRegistrationNumber\": \"{{sip_registration_number}}\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/mutualfundservice/api/bseStar/api/XSIPCancellation",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "mutualfundservice",
+                                "api",
+                                "bseStar",
+                                "api",
+                                "XSIPCancellation"
+                            ]
+                        },
+                        "description": "Cancel an active SIP"
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Cancel Action Plan XSIP",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"sipRegistrationNumber\": \"{{sip_registration_number}}\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/adminservice/api/actionPlan/cancelXsip",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "adminservice",
+                                "api",
+                                "actionPlan",
+                                "cancelXsip"
+                            ]
+                        },
+                        "description": "Cancel an action plan SIP"
+                    },
+                    "response": []
+                }
+            ]
+        },
+        {
+            "name": "Payments & Mandates",
+            "description": "Payment processing and mandate management",
+            "item": [
+                {
+                    "name": "Get E-Mandate Auth URL",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"amount\": 10000,\n  \"clientCode\": \"{{client_code}}\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/mutualfundservice/api/bseStar/mfWebService/eMandateAuthURL",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "mutualfundservice",
+                                "api",
+                                "bseStar",
+                                "mfWebService",
+                                "eMandateAuthURL"
+                            ]
+                        },
+                        "description": "Get e-mandate authorization URL"
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get Mandate Details",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"mandateId\": \"{{mandate_id}}\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/mutualfundservice/api/bseStar/mfWebService/mandateDetails",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "mutualfundservice",
+                                "api",
+                                "bseStar",
+                                "mfWebService",
+                                "mandateDetails"
+                            ]
+                        },
+                        "description": "Get mandate details"
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Update Payment Status",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"clientCode\": \"{{client_code}}\",\n  \"orderId\": \"{{order_id}}\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/mutualfundservice/api/bseStar/mfUpload/paymentStatus",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "mutualfundservice",
+                                "api",
+                                "bseStar",
+                                "mfUpload",
+                                "paymentStatus"
+                            ]
+                        },
+                        "description": "Update and check payment status"
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Create One Time Payment",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"amount\": 5000,\n  \"orderId\": \"{{order_id}}\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/mutualfundservice/api/bseStar/api/oneTimePayment",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "mutualfundservice",
+                                "api",
+                                "bseStar",
+                                "api",
+                                "oneTimePayment"
+                            ]
+                        },
+                        "description": "Initiate one-time payment"
+                    },
+                    "response": []
+                }
+            ]
+        },
+        {
+            "name": "Portfolio & Holdings",
+            "description": "Portfolio management and holdings data",
+            "item": [
+                {
+                    "name": "Get Holdings Group by Basket",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/planservice/api/portfolio/holdings",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "planservice",
+                                "api",
+                                "portfolio",
+                                "holdings"
+                            ]
+                        },
+                        "description": "Get holdings grouped by basket"
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get Holdings by Symbol",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/planservice/api/portfolio/symbol/holding",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "planservice",
+                                "api",
+                                "portfolio",
+                                "symbol",
+                                "holding"
+                            ]
+                        },
+                        "description": "Get holdings by symbol"
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get Order Details",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/planservice/api/portfolio/order",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "planservice",
+                                "api",
+                                "portfolio",
+                                "order"
+                            ]
+                        },
+                        "description": "Get portfolio order details"
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get Holdings Order History",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/planservice/api/portfolio/holding/order",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "planservice",
+                                "api",
+                                "portfolio",
+                                "holding",
+                                "order"
+                            ]
+                        },
+                        "description": "Get holdings order history"
+                    },
+                    "response": []
+                }
+            ]
+        },
+        {
+            "name": "Plans & Goals",
+            "description": "Financial planning and goal management",
+            "item": [
+                {
+                    "name": "Get All Plans",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/planservice/api/plan",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "planservice",
+                                "api",
+                                "plan"
+                            ]
+                        },
+                        "description": "Get all user investment plans"
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Delete Plan",
+                    "request": {
+                        "method": "DELETE",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/planservice/api/plan/{{plan_id}}",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "planservice",
+                                "api",
+                                "plan",
+                                "{{plan_id}}"
+                            ]
+                        },
+                        "description": "Delete a specific plan"
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get Investment Boxes",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/planservice/api/plan/investmentboxes",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "planservice",
+                                "api",
+                                "plan",
+                                "investmentboxes"
+                            ]
+                        },
+                        "description": "Get available investment boxes"
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get Investment Box Details",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/planservice/api/plan/investmentboxes/{{basket_id}}",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "planservice",
+                                "api",
+                                "plan",
+                                "investmentboxes",
+                                "{{basket_id}}"
+                            ]
+                        },
+                        "description": "Get details of a specific investment box"
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get Financial Fitness Questions",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/planservice/api/plan/financialFitness/questions",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "planservice",
+                                "api",
+                                "plan",
+                                "financialFitness",
+                                "questions"
+                            ]
+                        },
+                        "description": "Get financial fitness questionnaire"
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get Financial Fitness Report",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/planservice/api/plan/financialFitness",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "planservice",
+                                "api",
+                                "plan",
+                                "financialFitness"
+                            ]
+                        },
+                        "description": "Get user's financial fitness report"
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get Insurance URL",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/planservice/api/plan/insuranceUrl",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "planservice",
+                                "api",
+                                "plan",
+                                "insuranceUrl"
+                            ]
+                        },
+                        "description": "Get insurance partner URL"
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Create Proto First Plan",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"planType\": \"RETIREMENT\",\n  \"targetAmount\": 10000000,\n  \"timeHorizon\": 20\n}"
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/customerservice/api/protoFirstPlan",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "customerservice",
+                                "api",
+                                "protoFirstPlan"
+                            ]
+                        },
+                        "description": "Create a prototype first plan for new users"
+                    },
+                    "response": []
+                }
+            ]
+        },
+        {
+            "name": "Risk Assessment",
+            "description": "Risk profiling and questionnaires",
+            "item": [
+                {
+                    "name": "Get Risk Assessment Questions",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/planservice/api/plan/questionnaires",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "planservice",
+                                "api",
+                                "plan",
+                                "questionnaires"
+                            ]
+                        },
+                        "description": "Get risk assessment questionnaire"
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get Risk Profile",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/planservice/api/plan/riskProfile",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "planservice",
+                                "api",
+                                "plan",
+                                "riskProfile"
+                            ]
+                        },
+                        "description": "Get user's risk profile"
+                    },
+                    "response": []
+                }
+            ]
+        },
+        {
+            "name": "Customer Account",
+            "description": "Customer account details and settings",
+            "item": [
+                {
+                    "name": "Get Bank Details",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/customerservice/api/customer/bankDetails/v2",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "customerservice",
+                                "api",
+                                "customer",
+                                "bankDetails",
+                                "v2"
+                            ]
+                        },
+                        "description": "Get user's bank account details"
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get Journey Message",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/customerservice/api/customer/journey/message",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "customerservice",
+                                "api",
+                                "customer",
+                                "journey",
+                                "message"
+                            ]
+                        },
+                        "description": "Get customer journey message"
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get Notifications",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/customerservice/api/notification",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "customerservice",
+                                "api",
+                                "notification"
+                            ]
+                        },
+                        "description": "Get user notifications"
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Mark Notification as Read",
+                    "request": {
+                        "method": "PATCH",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/customerservice/api/notification/{{notification_id}}/markAsRead",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "customerservice",
+                                "api",
+                                "notification",
+                                "{{notification_id}}",
+                                "markAsRead"
+                            ]
+                        },
+                        "description": "Mark a notification as read"
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Get Carousel Content",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{base_url}}/customerservice/api/carouselContent",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "customerservice",
+                                "api",
+                                "carouselContent"
+                            ]
+                        },
+                        "description": "Get home page carousel content"
+                    },
+                    "response": []
+                }
+            ]
+        }
+    ]
+}

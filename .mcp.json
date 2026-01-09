@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "fabits": {
+      "command": "node",
+      "args": [
+        "/Users/apple/fabits-mcp/build/index.js"
+      ]
+    }
+  }
+}

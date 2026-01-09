@@ -1,0 +1,40 @@
+{
+  "name": "fabits-mcp",
+  "version": "1.0.0",
+  "description": "MCP server for Fabits MyWealth - Invest in mutual funds through natural conversation",
+  "type": "module",
+  "main": "build/index.js",
+  "bin": {
+    "fabits-mcp": "build/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc --watch",
+    "serve": "tsc && node build/server.js",
+    "prepare": "npm run build"
+  },
+  "keywords": [
+    "mcp",
+    "fabits",
+    "mutual-funds",
+    "investment",
+    "fintech"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.4",
+    "axios": "^1.7.9",
+    "body-parser": "^2.2.2",
+    "cors": "^2.8.5",
+    "express": "^5.2.1",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/body-parser": "^1.19.6",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/node": "^22.10.5",
+    "typescript": "^5.7.3"
+  }
+}
