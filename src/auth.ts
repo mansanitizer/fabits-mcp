@@ -172,6 +172,7 @@ export async function createAuthenticatedClient(tokenManager: TokenManager): Pro
     headers: {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${token}`,
+      'User-Agent': 'FabitsMCP/1.0.0 (Macintosh; Intel Mac OS X 10_15_7)',
     },
   });
 
