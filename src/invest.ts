@@ -1417,6 +1417,7 @@ export async function investBasketSIP(
 
 /**
  * Invest in basket one-time (for action plans with one-time breakdown)
+ * Frontend sends array with orderData containing individual fund allocations
  */
 export async function investBasketOneTime(
   tokenManager: TokenManager,
@@ -1430,22 +1431,51 @@ export async function investBasketOneTime(
     const clientCode = await getClientCode(tokenManager);
     const phoneOnly = getPhoneWithoutCountryCode(phoneNumber);
 
-    let result = `💰 Investing in Action Plan (One-Time)\n\n`;
-    result += `Plan ID: ${planId}\n`;
-    result += `Amount: ${formatCurrency(amount)}\n\n`;
+    console.error('\n=== INVEST BASKET ONE-TIME ===');
+    console.error('Plan ID:', planId);
+    console.error('Amount:', amount);
+    console.error('UPI ID:', upiId);
 
-    // Step 1: Place basket one-time order
-    console.error('\n=== STEP 1: PLACE BASKET ONE-TIME ORDER ===');
+    // Step 1: Fetch action plan to get oneTimeInvestmentBreakdown
+    console.error('\n=== STEP 1: FETCH ACTION PLAN DETAILS ===');
+    const actionPlan = await getActionPlanById(client, planId);
+
+    if (!actionPlan.oneTimeInvestmentBreakdown || actionPlan.oneTimeInvestmentBreakdown.length === 0) {
+      throw new Error('This action plan has no one-time investment breakdown. Cannot place order.');
+    }
+
+    console.error('One-Time Investment Breakdown:', JSON.stringify(actionPlan.oneTimeInvestmentBreakdown, null, 2));
+
+    // Step 2: Build orderData array from breakdown
+    // Frontend: orderData: plan.oneTimeInvestmentBreakdown.map(fund => ({
+    //   schemeCode: fund.bseSchemeCode,
+    //   orderVal: fund.investmentAmount
+    // }))
+    const orderDataArray = actionPlan.oneTimeInvestmentBreakdown.map((fund: any) => ({
+      schemeCode: fund.bseSchemeCode,
+      orderVal: fund.investmentAmount,
+    }));
+
+    console.error('Built orderData:', JSON.stringify(orderDataArray, null, 2));
+
+    if (orderDataArray.length === 0) {
+      throw new Error('No valid funds found in one-time investment breakdown.');
+    }
+
+    // Step 3: Build payload - Frontend sends as ARRAY
+    const orderPayload = [
+      {
+        orderType: 'PURCHASE',
+        orderData: orderDataArray,
+        clientCode: clientCode.toUpperCase(),
+        customerBasketInvestmentId: planId,
+        phoneNumber: phoneOnly,
+      }
+    ];
+
+    console.error('\n=== STEP 2: PLACE MULTI-BASKET ORDER ===');
     console.error('URL:', `${CONFIG.BASE_URL}${CONFIG.ENDPOINTS.BASKET_MULTI_ORDER}`);
-
-    const orderPayload = {
-      customerBasketInvestmentId: planId,
-      amount,
-      clientCode,
-      phoneNumber: phoneOnly,
-    };
-
-    console.error('Order Payload:', JSON.stringify(orderPayload, null, 2));
+    console.error('Order Payload (Array):', JSON.stringify(orderPayload, null, 2));
 
     const orderResponse = await client.post<any>(
       CONFIG.ENDPOINTS.BASKET_MULTI_ORDER,
@@ -1454,38 +1484,62 @@ export async function investBasketOneTime(
 
     console.error('Order Response:', JSON.stringify(orderResponse.data, null, 2));
 
-    if (orderResponse.data.status !== 'SUCCESS' && orderResponse.data.isError) {
+    // Check for error
+    if (orderResponse.data.isError) {
+      throw new Error(orderResponse.data.message || orderResponse.data.response?.data || 'Basket order placement failed');
+    }
+
+    if (orderResponse.data.status !== 'SUCCESS') {
       throw new Error(orderResponse.data.message || 'Basket order placement failed');
     }
 
-    // Extract order number
-    let orderNumber = orderResponse.data.data?.orderNumber || orderResponse.data.data?.orderId;
+    // Extract order numbers from basketResponses (frontend: response.basketResponses.flatMap(basket => basket.orders))
+    const basketResponses = orderResponse.data.basketResponses || [];
+    const orders = basketResponses.flatMap((basket: any) => basket.orders || []);
 
-    if (!orderNumber) {
-      // Try to parse from pipe-delimited response data if present
-      const responseData = orderResponse.data.data;
-      if (typeof responseData === 'string' && responseData.includes('|')) {
-        const orderParts = responseData.split('|');
-        orderNumber = orderParts[2] || orderParts[1]; // Try index 2 first, fallback to 1
-      }
+    console.error('Orders:', JSON.stringify(orders, null, 2));
+
+    // Check for any failures
+    const failures = orders.filter((order: any) => order.status === 'FAILURE');
+    if (failures.length > 0) {
+      throw new Error(`Some orders failed: ${JSON.stringify(failures)}`);
     }
 
-    if (!orderNumber) {
-      throw new Error('No order number received from basket order placement');
+    // Get order numbers for payment
+    const orderNumbers = orders.map((order: any) => order.orderNumber || order.orderId).filter(Boolean);
+
+    if (orderNumbers.length === 0) {
+      throw new Error('No order numbers received from basket order placement');
     }
 
-    result += `✅ Step 1: Order Placed\n\n`;
-    result += `Order Number: ${orderNumber}\n`;
-    result += `Amount: ${formatCurrency(amount)}\n\n`;
+    const totalAmount = orderDataArray.reduce((sum: number, fund: any) => sum + fund.orderVal, 0);
 
-    // Step 2: Initiate UPI payment
-    console.error('\n=== STEP 2: INITIATE UPI PAYMENT ===');
+    let result = `╔════════════════════════════════════════════════════════════╗\n`;
+    result += `║  ✅ BASKET ORDER PLACED                                    ║\n`;
+    result += `╠════════════════════════════════════════════════════════════╣\n`;
+    result += `║  📋 Plan: ${(actionPlan.customerBasketName || 'Action Plan').substring(0, 47).padEnd(47)}║\n`;
+    result += `║  💰 Amount: ${formatCurrency(totalAmount).padEnd(45)}║\n`;
+    result += `║                                                            ║\n`;
+    result += `║  📊 FUND ORDERS:                                           ║\n`;
+
+    orderDataArray.forEach((fund: any) => {
+      const fundLine = `  • ${fund.schemeCode}: ${formatCurrency(fund.orderVal)}`;
+      result += `║${fundLine.padEnd(60)}║\n`;
+    });
+
+    result += `╚════════════════════════════════════════════════════════════╝\n\n`;
+
+    // Step 4: Initiate UPI payment for each order (or consolidated)
+    console.error('\n=== STEP 3: INITIATE UPI PAYMENT ===');
     console.error('URL:', `${CONFIG.BASE_URL}${CONFIG.ENDPOINTS.ONE_TIME_PAYMENT}`);
 
+    // Use first order number for payment (consolidated)
+    const primaryOrderNumber = orderNumbers[0];
+
     const paymentPayload = {
-      clientCode,
-      orderNumber,
-      totalAmount: amount,
+      clientCode: clientCode.toUpperCase(),
+      orderNumber: primaryOrderNumber,
+      totalAmount: totalAmount,
       upiId,
       modeOfPayment: 'UPI',
       loopbackURL: '',
@@ -1500,37 +1554,40 @@ export async function investBasketOneTime(
 
     console.error('Payment Response:', JSON.stringify(paymentResponse.data, null, 2));
 
-    if (paymentResponse.data.status !== 'SUCCESS') {
+    if (paymentResponse.data.status !== 'SUCCESS' && paymentResponse.data.isError) {
       throw new Error(paymentResponse.data.message || 'Payment initiation failed');
     }
 
-    result += `💳 Step 2: UPI Payment Initiated\n\n`;
-    result += `${paymentResponse.data.data?.responsestring || 'UPI payment request sent'}\n\n`;
-    result += `⏳ Step 3: Waiting for Payment Confirmation...\n\n`;
-    result += `Please approve the payment request on your UPI app (${upiId}).\n`;
-    result += `Checking payment status...\n\n`;
+    result += `💳 UPI Payment Request Sent\n\n`;
+    result += `${paymentResponse.data.data?.responsestring || 'Please check your UPI app'}\n\n`;
+    result += `⏳ Waiting for payment confirmation...\n`;
+    result += `Please approve the payment request on your UPI app (${upiId}).\n\n`;
 
-    // Step 3: Poll payment status
-    console.error('\n=== STEP 3: POLL PAYMENT STATUS ===');
+    // Step 5: Poll payment status
+    console.error('\n=== STEP 4: POLL PAYMENT STATUS ===');
 
-    const paymentStatus = await pollPaymentStatus(client, clientCode, orderNumber);
+    const paymentStatus = await pollPaymentStatus(client, clientCode.toUpperCase(), primaryOrderNumber);
 
     if (paymentStatus.success) {
-      result += `✅ Payment Successful!\n\n`;
-      result += `Status: ${paymentStatus.data}\n`;
-      result += `Order Number: ${orderNumber}\n\n`;
-      result += `🎉 Your basket investment has been completed successfully!\n`;
-      result += `\n💡 Track your investment: Use fabits_get_basket_holdings or fabits_get_transactions`;
+      result += `╔════════════════════════════════════════════════════════════╗\n`;
+      result += `║  ✅ PAYMENT SUCCESSFUL                                     ║\n`;
+      result += `╠════════════════════════════════════════════════════════════╣\n`;
+      result += `║  Order Number: ${primaryOrderNumber.toString().padEnd(42)}║\n`;
+      result += `║  Amount: ${formatCurrency(totalAmount).padEnd(48)}║\n`;
+      result += `║                                                            ║\n`;
+      result += `║  🎉 Your investment is complete!                           ║\n`;
+      result += `║  💡 Track: fabits_get_basket_holdings                      ║\n`;
+      result += `╚════════════════════════════════════════════════════════════╝\n`;
     } else if (paymentStatus.status === 'TIMEOUT') {
       result += `⚠️  Payment Status: Pending\n\n`;
-      result += `We couldn't confirm your payment status within the timeout period.\n`;
-      result += `This doesn't mean the payment failed - it may still be processing.\n\n`;
-      result += `Order Number: ${orderNumber}\n\n`;
-      result += `💡 Check status later: Use fabits_get_transactions`;
+      result += `We couldn't confirm payment within the timeout period.\n`;
+      result += `This doesn't mean it failed - it may still be processing.\n\n`;
+      result += `Order Number: ${primaryOrderNumber}\n\n`;
+      result += `💡 Check later: fabits_get_transactions`;
     } else {
       result += `❌ Payment Failed\n\n`;
       result += `Status: ${paymentStatus.data}\n`;
-      result += `Order Number: ${orderNumber}\n\n`;
+      result += `Order Number: ${primaryOrderNumber}\n\n`;
       result += `Please try again or contact support.`;
     }
 
@@ -1539,8 +1596,8 @@ export async function investBasketOneTime(
     console.error('\n=== INVEST BASKET ONE-TIME ERROR ===');
     console.error('Error:', error);
     if (axios.isAxiosError(error)) {
-      const message = error.response?.data?.message || error.message;
-      throw new Error(`Basket one-time investment failed: ${message}\n\nFull Error: ${JSON.stringify(error.response?.data, null, 2)}`);
+      const message = error.response?.data?.message || error.response?.data || error.message;
+      throw new Error(`Basket one-time investment failed: ${message}\n\nFull response: ${JSON.stringify(error.response?.data, null, 2)}`);
     }
     if (error instanceof Error) {
       throw new Error(`Basket one-time investment failed: ${error.message}`);
