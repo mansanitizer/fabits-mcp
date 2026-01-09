@@ -39,3 +39,9 @@ auth.json
 # Test coverage
 coverage/
 .nyc_output/
+
+# ===========================================
+# REFERENCE CODE - For study purposes only
+# NEVER commit this directory!
+# ===========================================
+_reference/

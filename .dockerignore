@@ -1,0 +1,66 @@
+# ===========================================
+# DOCKER IGNORE - Exclude from Docker builds
+# ===========================================
+
+# Reference code - NEVER ship in production
+_reference/
+
+# Git and version control
+.git/
+.gitignore
+.gitattributes
+
+# Documentation (not needed in runtime)
+*.md
+!README.md
+CHANGELOG.md
+POSTMAN_COLLECTION_README.md
+CODEBASE_INDEX.md
+SYSTEM_PROMPT.md
+
+# Postman collections
+*.postman_collection.json
+*.postman_environment.json
+
+# Development files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Test files
+__tests__/
+*.test.ts
+*.spec.ts
+coverage/
+.nyc_output/
+
+# TypeScript source (we only need compiled JS)
+# Note: Keeping src/ because we build in Docker
+# tsconfig.json - needed for build
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Auth tokens
+auth.json
+tokens/
+
+# Deployment configs (already in Docker)
+Dockerfile
+docker-compose*.yml
+.dockerignore
+railway.json
+railpack.json
