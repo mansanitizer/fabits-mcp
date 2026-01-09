@@ -82,82 +82,98 @@ export class TokenManager {
   }
 }
 
+// Shared promise to deduplicate refresh requests
+let refreshTokenPromise: Promise<string> | null = null;
+
 /**
  * Internal function to refresh token silently
+ * Implements request deduplication to handle concurrent 401s
  */
 async function silentRefreshToken(tokenManager: TokenManager): Promise<string> {
-  const tokenData = await tokenManager.loadToken();
-
-  if (!tokenData || !tokenData.refreshToken) {
-    throw new Error('REFRESH_TOKEN_MISSING');
+  // If a refresh is already in progress, return the existing promise
+  if (refreshTokenPromise) {
+    console.error('🔄 Refresh already in progress, waiting...');
+    return refreshTokenPromise;
   }
 
-  console.error('\n=== AUTO REFRESH TOKEN ===');
-  console.error('Attempting silent token refresh...');
-
-  const maxRetries = 3;
-  let lastError: any;
-
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+  refreshTokenPromise = (async () => {
     try {
-      if (attempt > 1) {
-        console.error(`Retry attempt ${attempt}/${maxRetries}...`);
-        // Wait 1s between retries
-        await new Promise(resolve => setTimeout(resolve, 1000));
+      const tokenData = await tokenManager.loadToken();
+
+      if (!tokenData || !tokenData.refreshToken) {
+        throw new Error('REFRESH_TOKEN_MISSING');
       }
 
-      const response = await axios.post<LoginResponse>(
-        `${CONFIG.BASE_URL}${CONFIG.ENDPOINTS.REFRESH_TOKEN}`,
-        { refresh_token: tokenData.refreshToken },
-        {
-          timeout: CONFIG.REQUEST_TIMEOUT,
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        }
-      );
+      console.error('\n=== AUTO REFRESH TOKEN ===');
+      console.error('Attempting silent token refresh...');
 
-      if (!response.data.access_token) {
-        throw new Error('REFRESH_FAILED');
+      const maxRetries = 3;
+      let lastError: any;
+
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+          if (attempt > 1) {
+            console.error(`Retry attempt ${attempt}/${maxRetries}...`);
+            await new Promise(resolve => setTimeout(resolve, 1000));
+          }
+
+          const response = await axios.post<LoginResponse>(
+            `${CONFIG.BASE_URL}${CONFIG.ENDPOINTS.REFRESH_TOKEN}`,
+            { refresh_token: tokenData.refreshToken },
+            {
+              timeout: CONFIG.REQUEST_TIMEOUT,
+              headers: {
+                'Content-Type': 'application/json',
+                'User-Agent': 'FabitsMCP/1.0.0 (Macintosh; Intel Mac OS X 10_15_7)',
+              },
+            }
+          );
+
+          if (!response.data.access_token) {
+            throw new Error('REFRESH_FAILED');
+          }
+
+          // Decode new JWT
+          const decodedToken = decodeJWT(response.data.access_token);
+
+          // Update stored token
+          const updatedAuthToken: AuthToken = {
+            token: response.data.access_token,
+            refreshToken: response.data.refresh_token || tokenData.refreshToken,
+            phoneNumber: decodedToken.phoneNumber || tokenData.phoneNumber,
+            clientCode: decodedToken.uid || tokenData.clientCode,
+            panNumber: decodedToken.panNumber || tokenData.panNumber,
+          };
+
+          await tokenManager.saveToken(updatedAuthToken);
+
+          console.error('✅ Token refreshed successfully');
+          return updatedAuthToken.token;
+        } catch (error) {
+          lastError = error;
+          console.error(`❌ Token refresh attempt ${attempt} failed:`, error instanceof Error ? error.message : String(error));
+
+          if (axios.isAxiosError(error)) {
+            // Stop retrying on hard auth errors
+            if (error.response?.status === 401 || error.response?.status === 403) {
+              throw new Error('REFRESH_TOKEN_EXPIRED');
+            }
+            // Stop retrying on bad request
+            if (error.response?.status === 400) {
+              throw new Error('REFRESH_FAILED');
+            }
+          }
+        }
       }
 
-      // Decode new JWT to extract user info
-      const decodedToken = decodeJWT(response.data.access_token);
-
-      // Update stored token
-      const updatedAuthToken: AuthToken = {
-        token: response.data.access_token,
-        refreshToken: response.data.refresh_token || tokenData.refreshToken,
-        phoneNumber: decodedToken.phoneNumber || tokenData.phoneNumber,
-        clientCode: decodedToken.uid || tokenData.clientCode,
-        panNumber: decodedToken.panNumber || tokenData.panNumber,
-      };
-
-      await tokenManager.saveToken(updatedAuthToken);
-
-      console.error('✅ Token refreshed successfully');
-      return updatedAuthToken.token;
-    } catch (error) {
-      lastError = error;
-      console.error(`❌ Token refresh attempt ${attempt} failed:`, error instanceof Error ? error.message : String(error));
-
-      if (axios.isAxiosError(error)) {
-        // If 401/403, refresh token is definitely invalid, stop retrying
-        if (error.response?.status === 401 || error.response?.status === 403) {
-          throw new Error('REFRESH_TOKEN_EXPIRED');
-        }
-        // If 400 (Bad Request), unlikely to succeed on retry
-        if (error.response?.status === 400) {
-          throw new Error('REFRESH_FAILED');
-        }
-      }
-
-      // For other errors (5xx, network), continue to next iteration
+      throw lastError || new Error('REFRESH_FAILED');
+    } finally {
+      // Clear the promise so future calls can start a new refresh
+      refreshTokenPromise = null;
     }
-  }
+  })();
 
-  // If we exhausted retries
-  throw lastError || new Error('REFRESH_FAILED');
+  return refreshTokenPromise;
 }
 
 /**
