@@ -1,0 +1,2 @@
+RAILPACK_START_COMMAND='npm start'
+RAILPACK_BUILD_COMMAND='npm install && npm run build'
