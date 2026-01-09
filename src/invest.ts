@@ -1001,29 +1001,62 @@ export async function completeLumpsumNetbanking(
       throw new Error('No payment link received from payment gateway');
     }
 
-    // Save HTML to file for serving
-    const PAYMENTS_DIR = path.join(os.homedir(), '.config', 'fabits-mcp', 'payments');
-    if (!existsSync(PAYMENTS_DIR)) {
-      mkdirSync(PAYMENTS_DIR, { recursive: true });
+
+
+    // Parse HTML to extract form action and inputs
+    // Regex to find form action
+    const actionMatch = paymentHtml.match(/action=['"]([^'"]+)['"]/i);
+    if (!actionMatch) {
+      throw new Error('Could not parse payment form action');
+    }
+    const actionUrl = actionMatch[1];
+
+    // Regex to find all hidden inputs
+    const inputRegex = /<input[^>]+name=['"]([^'"]+)['"][^>]+value=['"]([^'"]+)['"]/gi;
+    const formData = new URLSearchParams();
+
+    let match;
+    while ((match = inputRegex.exec(paymentHtml)) !== null) {
+      formData.append(match[1], match[2]);
     }
 
-    // Sanitize order number for filename
-    const safeOrderNumber = orderNumber.replace(/[^a-z0-9]/gi, '');
-    writeFileSync(path.join(PAYMENTS_DIR, `${safeOrderNumber}.html`), paymentHtml);
+    console.error('\n=== EXECUTING PAYMENT FORM BACKEND ===');
+    console.error('Values:', Object.fromEntries(formData));
+    console.error('Target:', actionUrl);
 
-    // Determine Base URL
-    let baseUrl = 'http://localhost:3000';
-    if (process.env.RAILWAY_PUBLIC_DOMAIN) {
-      baseUrl = `https://${process.env.RAILWAY_PUBLIC_DOMAIN}`;
-    } else if (process.env.PUBLIC_URL) {
-      baseUrl = process.env.PUBLIC_URL;
+    // Act as the user's browser and submit the form
+    const formResponse = await axios.post(actionUrl, formData, {
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+      },
+      maxRedirects: 5, // Follow redirects
+      validateStatus: (status) => status >= 200 && status < 400 // Accept redirects as success
+    });
+
+    console.error('Form Submit Status:', formResponse.status);
+
+    // Attempt to get the final URL
+    // In axios node adapter, the final URL after redirects is in request.res.responseUrl
+    const finalUrl = formResponse.request?.res?.responseUrl;
+
+    console.error('Final URL:', finalUrl);
+
+    if (!finalUrl) {
+      throw new Error('Failed to retrieve final payment URL');
     }
 
-    const redirectUrl = `${baseUrl}/pay/${safeOrderNumber}`;
+    // Check if the final URL is the same as the action URL (meaning it didn't redirect, just rendered HTML)
+    // If it is the same, this method failed because the user can't view the POST result.
+    // However, many gateways REDIRECT to a GET-able page.
+    if (finalUrl === actionUrl && formResponse.status === 200) {
+      console.warn('Warning: Payment gateway returned 200 OK on POST. Link might not work for GET.');
+      // We still return it, as it's the only option we have right now.
+    }
 
     result += `💳 Step 2/2: Netbanking Link Generated\n\n`;
     result += `Please click the link below to complete your payment via Netbanking:\n\n`;
-    result += `${redirectUrl}\n\n`;
+    result += `${finalUrl}\n\n`;
 
     result += `╔════════════════════════════════════════════════════════════╗\n`;
     result += `║  ⏳ ACTION REQUIRED                                        ║\n`;
