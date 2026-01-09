@@ -557,5 +557,21 @@ export const TOOLS: Tool[] = [
             required: ['user_id', 'mandate_id'],
         },
     },
+    {
+        name: 'fabits_find_user_mandates',
+        description: 'Find all mandates for the user. Returns a list of mandates. useful for finding an existing APPROVED mandate to use for new SIPs.',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                ...USER_ID_PROP,
+                status_filter: {
+                    type: 'string',
+                    enum: ['APPROVED', 'ALL'],
+                    description: 'Filter mandates by status (default: APPROVED). Use ALL to see rejected/failed mandates too.',
+                },
+            },
+            required: ['user_id'],
+        },
+    },
 ];
 

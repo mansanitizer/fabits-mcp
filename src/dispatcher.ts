@@ -1,7 +1,7 @@
 
 import { TokenManager, requestOTP, verifyOTP, getAuthStatus, refreshAccessToken, logout } from './auth.js';
 import { searchFunds, getFundDetails, getStarFunds } from './funds.js';
-import { investLumpsum, startSIP, redeemFund, investBasket, getAllBaskets, sendTransactionalOTP, verifyTransactionalOTP, investLumpsumUPI, completeLumpsumUPI, checkPaymentStatus, setupBasketMandate, investBasketSIP, investBasketOneTime, registerMandate, checkMandateStatus } from './invest.js';
+import { investLumpsum, startSIP, redeemFund, investBasket, getAllBaskets, sendTransactionalOTP, verifyTransactionalOTP, investLumpsumUPI, completeLumpsumUPI, checkPaymentStatus, setupBasketMandate, investBasketSIP, investBasketOneTime, registerMandate, checkMandateStatus, findUserMandates } from './invest.js';
 import { getPortfolio, getSIPs, getTransactions, cancelSIP, getBasketHoldings, getActionPlans } from './portfolio.js';
 import { testInvestwellTransactions } from './investwell.js';
 import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
@@ -258,6 +258,14 @@ export async function dispatchToolCall(name: string, args: any, tokenManager: To
             const result = await checkMandateStatus(
                 tokenManager,
                 args.mandate_id as string
+            );
+            return { content: [{ type: 'text', text: result }] };
+        }
+
+        case 'fabits_find_user_mandates': {
+            const result = await findUserMandates(
+                tokenManager,
+                (args.status_filter as 'APPROVED' | 'ALL') || 'APPROVED'
             );
             return { content: [{ type: 'text', text: result }] };
         }

@@ -1594,6 +1594,100 @@ export async function investBasketOneTime(
  * 2. If alreadyExists && mandateStatus !== 'NEW' → already approved, return it
  * 3. If mandateStatus === 'NEW' || null → need auth, get authUrl
  */
+/**
+ * Find all user mandates
+ * Returns list of mandates, filtering for APPROVED ones by default
+ */
+export async function findUserMandates(
+  tokenManager: TokenManager,
+  statusFilter: 'APPROVED' | 'ALL' = 'APPROVED'
+): Promise<string> {
+  try {
+    const client = await createAuthenticatedClient(tokenManager);
+    const clientCode = await getClientCode(tokenManager);
+
+    console.error('\n=== FIND USER MANDATES ===');
+    console.error('Client Code:', clientCode);
+
+    // Calculate date range (start of year to today)
+    // Adjust start date if needed to capture older mandates
+    const today = new Date();
+    const toDate = today.toLocaleDateString('en-GB').replace(/\//g, '/');
+    const fromDate = '01/01/2020'; // Look back 4-5 years to find all active mandates
+
+    const mandateDetailsPayload = {
+      fromDate,
+      toDate,
+      clientCode,
+      mandateId: '', // Empty mandate ID to fetch all
+    };
+
+    console.error('Request Payload:', JSON.stringify(mandateDetailsPayload, null, 2));
+
+    const response = await client.post<any>(
+      CONFIG.ENDPOINTS.MANDATE_DETAILS,
+      mandateDetailsPayload
+    );
+
+    console.error('Response:', JSON.stringify(response.data, null, 2));
+
+    if (response.data.status !== 'SUCCESS' && response.data.status !== 100) {
+      if (response.data.message?.includes('No Data Found')) {
+        return 'No mandates found for this user.';
+      }
+      throw new Error(response.data.message || 'Failed to fetch mandates');
+    }
+
+    const allMandates = response.data.MandateDetails || response.data.data?.MandateDetails || [];
+
+    if (!Array.isArray(allMandates) || allMandates.length === 0) {
+      return 'No mandates found for this user.';
+    }
+
+    // Filter mandates
+    const mandates = statusFilter === 'APPROVED'
+      ? allMandates.filter((m: any) =>
+        m.status === 'APPROVED' ||
+        m.status === 'RECEIVED BY EXCHANGE' ||
+        m.status === 'UNDER PROCESSING'
+      )
+      : allMandates;
+
+    if (mandates.length === 0) {
+      return `No ${statusFilter} mandates found. (Found ${allMandates.length} other mandates)`;
+    }
+
+    let result = `📋 Found ${mandates.length} ${statusFilter} Mandate(s)\n`;
+    result += `${'='.repeat(40)}\n\n`;
+
+    mandates.forEach((m: any, index: number) => {
+      result += `${index + 1}. Mandate ID: ${m.mandateId}\n`;
+      result += `   Status: ${m.status}\n`;
+      result += `   Amount: ${formatCurrency(Number(m.amount))}\n`;
+      result += `   Bank: ${m.bankName || 'N/A'}\n`;
+      if (m.umrn) result += `   UMRN: ${m.umrn}\n`;
+      result += `   Date: ${m.approvedTime || 'N/A'}\n`;
+      result += `\n`;
+    });
+
+    result += `💡 Use a Mandate ID to start a SIP without new authentication.`;
+
+    return result;
+
+  } catch (error) {
+    console.error('\n=== FIND MANDATES ERROR ===');
+    console.error('Error:', error);
+    if (axios.isAxiosError(error)) {
+      const message = error.response?.data?.message || error.message;
+      throw new Error(`Failed to find mandates: ${message}`);
+    }
+    if (error instanceof Error) {
+      throw new Error(`Failed to find mandates: ${error.message}`);
+    }
+    throw error;
+  }
+}
+
 export async function registerMandate(
   tokenManager: TokenManager,
   amount: number
