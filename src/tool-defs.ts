@@ -518,5 +518,37 @@ export const TOOLS: Tool[] = [
             required: ['user_id'],
         },
     },
+
+    // Standalone Mandate Tools
+    {
+        name: 'fabits_register_mandate',
+        description: 'Register a new e-mandate for auto-debit SIPs. Returns mandate ID and authentication URL. User must complete bank authentication at the URL, then use fabits_check_mandate_status to verify. IMPORTANT: Tell user to SAVE the mandate ID - they will need it later!',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                ...USER_ID_PROP,
+                amount: {
+                    type: 'number',
+                    description: 'Maximum monthly debit amount allowed for this mandate (in rupees). Should cover all SIPs user plans to set up.',
+                },
+            },
+            required: ['user_id', 'amount'],
+        },
+    },
+    {
+        name: 'fabits_check_mandate_status',
+        description: 'Check the approval status of a mandate by its ID. Use this after user completes e-mandate bank authentication, or anytime to check a previously registered mandate. Returns APPROVED, PENDING, or FAILED.',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                ...USER_ID_PROP,
+                mandate_id: {
+                    type: 'string',
+                    description: 'The mandate ID received from fabits_register_mandate',
+                },
+            },
+            required: ['user_id', 'mandate_id'],
+        },
+    },
 ];
 
