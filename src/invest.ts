@@ -109,65 +109,108 @@ export async function investLumpsum(
 }
 
 /**
- * Start a SIP (Systematic Investment Plan)
+ * Start a SIP (Systematic Investment Plan) using an approved mandate
+ * Frontend uses sipRegistrationOrder with mandateId
  */
 export async function startSIP(
   tokenManager: TokenManager,
-  fundId: string,
+  schemeCode: string,
   monthlyAmount: number,
   sipDate: number,
-  installments?: number
+  mandateId: string
 ): Promise<string> {
   try {
     const client = await createAuthenticatedClient(tokenManager);
+    const clientCode = await getClientCode(tokenManager);
 
-    const orderRequest: PlaceOrderRequest = {
-      fundId,
-      amount: monthlyAmount,
-      orderType: 'PURCHASE',
-      transactionMode: 'SIP',
-      sipDate,
-      sipFrequency: 'MONTHLY',
-      installments,
+    console.error('\n=== START SIP ===');
+    console.error('Scheme Code:', schemeCode);
+    console.error('Monthly Amount:', monthlyAmount);
+    console.error('SIP Date:', sipDate);
+    console.error('Mandate ID:', mandateId);
+    console.error('Client Code:', clientCode);
+
+    // Calculate SIP start date (1st of next month or specified date) in DD/MM/YYYY format
+    const today = new Date();
+    const nextMonth = new Date(today.getFullYear(), today.getMonth() + 1, sipDate);
+    const startDate = nextMonth.toLocaleDateString('en-GB').replace(/\//g, '/');
+
+    console.error('Start Date:', startDate);
+    console.error('URL:', `${CONFIG.BASE_URL}${CONFIG.ENDPOINTS.SIP_REGISTRATION_ORDER}`);
+
+    // Frontend payload structure
+    const sipPayload = {
+      sipData: [
+        {
+          schemeCode: schemeCode,
+          installmentAmount: monthlyAmount,
+        }
+      ],
+      clientCode: clientCode.toUpperCase(),
+      startDate: startDate,
+      mandateId: mandateId,
     };
 
-    const response = await client.post<APIResponse<PlaceOrderResponse['data']>>(
-      CONFIG.ENDPOINTS.PLACE_ORDER,
-      orderRequest
+    console.error('SIP Payload:', JSON.stringify(sipPayload, null, 2));
+
+    const response = await client.post<any>(
+      CONFIG.ENDPOINTS.SIP_REGISTRATION_ORDER,
+      sipPayload
     );
 
+    console.error('SIP Response:', JSON.stringify(response.data, null, 2));
+
+    // Check for error
     if (response.data.isError) {
-      throw new Error(response.data.response?.message || 'SIP creation failed');
+      throw new Error(response.data.message || response.data.response?.message || 'SIP registration failed');
+    }
+
+    // Check for success
+    if (response.data.status !== 'SUCCESS') {
+      throw new Error(response.data.message || 'SIP registration failed');
     }
 
     const orderData = response.data.data;
+    const orderStatus = orderData?.orderStatus || response.data.orderStatus;
 
-    if (!orderData) {
-      throw new Error('No SIP data received');
-    }
+    let result = '';
 
-    let result = `✅ SIP Started Successfully!\n\n`;
-    result += `Order ID: ${orderData.orderId}\n`;
-    if (orderData.bseOrderId) result += `BSE Order ID: ${orderData.bseOrderId}\n`;
-    result += `Monthly Amount: ${formatCurrency(monthlyAmount)}\n`;
-    result += `SIP Date: ${sipDate} of every month\n`;
-    if (installments) result += `Total Installments: ${installments}\n`;
-    result += `Status: ${orderData.status}\n`;
-
-    if (orderData.paymentLink) {
-      result += `\n💳 E-Mandate Setup Required\n`;
-      result += `Mandate Link: ${orderData.paymentLink}\n`;
-      result += `\nComplete e-mandate setup to activate your SIP.`;
+    if (orderStatus === 'ACTIVE' || response.data.status === 'SUCCESS') {
+      result += `╔════════════════════════════════════════════════════════════╗\n`;
+      result += `║  ✅ SIP REGISTERED SUCCESSFULLY                            ║\n`;
+      result += `╠════════════════════════════════════════════════════════════╣\n`;
+      result += `║                                                            ║\n`;
+      result += `║  📋 Scheme: ${schemeCode.padEnd(46)}║\n`;
+      result += `║  💰 Monthly Amount: ${formatCurrency(monthlyAmount).padEnd(37)}║\n`;
+      result += `║  📅 SIP Date: ${sipDate.toString().padEnd(43)}th of every month ║\n`;
+      result += `║  📆 Start Date: ${startDate.padEnd(41)}║\n`;
+      result += `║  🔖 Mandate ID: ${mandateId.padEnd(41)}║\n`;
+      if (orderData?.sipRegistrationId) {
+        result += `║  🆔 SIP ID: ${orderData.sipRegistrationId.toString().padEnd(46)}║\n`;
+      }
+      result += `║  📊 Status: ${(orderStatus || 'ACTIVE').padEnd(46)}║\n`;
+      result += `║                                                            ║\n`;
+      result += `╠════════════════════════════════════════════════════════════╣\n`;
+      result += `║  🎉 Your SIP is now active!                                ║\n`;
+      result += `║  Amount will be debited on the ${sipDate}th of each month.     ║\n`;
+      result += `║                                                            ║\n`;
+      result += `║  💡 View your SIPs: fabits_get_sips                        ║\n`;
+      result += `╚════════════════════════════════════════════════════════════╝\n`;
     } else {
-      result += `\n✨ Your SIP is being activated.`;
+      result += `⚠️ SIP Registration Status: ${orderStatus || 'UNKNOWN'}\n\n`;
+      result += `Response: ${JSON.stringify(response.data, null, 2)}\n`;
     }
-
-    result += `\n\n💡 View active SIPs: Use fabits_get_sips`;
 
     return result;
   } catch (error) {
+    console.error('\n=== START SIP ERROR ===');
+    console.error('Error:', error);
+    if (axios.isAxiosError(error)) {
+      const message = error.response?.data?.message || error.message;
+      throw new Error(`SIP registration failed: ${message}\n\nFull response: ${JSON.stringify(error.response?.data, null, 2)}`);
+    }
     if (error instanceof Error) {
-      throw new Error(`SIP creation failed: ${error.message}`);
+      throw new Error(`SIP registration failed: ${error.message}`);
     }
     throw error;
   }

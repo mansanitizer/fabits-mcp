@@ -54,6 +54,7 @@ export const CONFIG = {
     // SIPs
     USER_SIPS: '/planservice/api/portfolio/sips',
     CANCEL_XSIP: '/mutualfundservice/api/bseStar/api/XSIPCancellation',
+    SIP_REGISTRATION_ORDER: '/mutualfundservice/api/illusion/sipRegistrationOrder',
 
     // Portfolio
     PORTFOLIO_HOLDINGS: '/planservice/api/portfolio/holdings',

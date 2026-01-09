@@ -75,13 +75,13 @@ export async function dispatchToolCall(name: string, args: any, tokenManager: To
         }
 
         case 'fabits_start_sip': {
-            // Hardcoded to 480 installments (40 years × 12 months)
+            // Uses sipRegistrationOrder with mandate
             const result = await startSIP(
                 tokenManager,
-                args.fund_id as string,
+                args.scheme_code as string,
                 args.monthly_amount as number,
                 args.sip_date as number,
-                480 // 40 years
+                args.mandate_id as string
             );
             return { content: [{ type: 'text', text: result }] };
         }

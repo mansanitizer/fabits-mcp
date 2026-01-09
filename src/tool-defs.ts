@@ -147,14 +147,14 @@ export const TOOLS: Tool[] = [
     },
     {
         name: 'fabits_start_sip',
-        description: 'Start a Systematic Investment Plan (SIP). Automatically set for 40 years (480 installments).',
+        description: 'Start a Systematic Investment Plan (SIP) using an approved mandate. REQUIRES an approved mandate. First use fabits_register_mandate to get a mandate_id, then fabits_check_mandate_status to confirm approval.',
         inputSchema: {
             type: 'object',
             properties: {
                 ...USER_ID_PROP,
-                fund_id: {
+                scheme_code: {
                     type: 'string',
-                    description: 'Fund ID for SIP',
+                    description: 'BSE scheme code (e.g., "INF179K01CC4"). Get this from fund details.',
                 },
                 monthly_amount: {
                     type: 'number',
@@ -164,8 +164,12 @@ export const TOOLS: Tool[] = [
                     type: 'number',
                     description: 'Date of month for SIP deduction (1-28)',
                 },
+                mandate_id: {
+                    type: 'string',
+                    description: 'Approved mandate ID from fabits_register_mandate. Must be APPROVED status.',
+                },
             },
-            required: ['user_id', 'fund_id', 'monthly_amount', 'sip_date'],
+            required: ['user_id', 'scheme_code', 'monthly_amount', 'sip_date', 'mandate_id'],
         },
     },
     {
