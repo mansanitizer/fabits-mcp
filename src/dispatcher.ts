@@ -75,12 +75,13 @@ export async function dispatchToolCall(name: string, args: any, tokenManager: To
         }
 
         case 'fabits_start_sip': {
+            // Hardcoded to 480 installments (40 years × 12 months)
             const result = await startSIP(
                 tokenManager,
                 args.fund_id as string,
                 args.monthly_amount as number,
                 args.sip_date as number,
-                args.installments as number | undefined
+                480 // 40 years
             );
             return { content: [{ type: 'text', text: result }] };
         }
@@ -157,6 +158,7 @@ export async function dispatchToolCall(name: string, args: any, tokenManager: To
         }
 
         case 'fabits_setup_basket_mandate': {
+            // Hardcoded: account_type='SB', mandate_type='XSIP'
             const result = await setupBasketMandate(
                 tokenManager,
                 args.plan_id as number,
@@ -165,8 +167,8 @@ export async function dispatchToolCall(name: string, args: any, tokenManager: To
                 args.amount as number | undefined,
                 args.bank_account_number as string | undefined,
                 args.ifsc_code as string | undefined,
-                (args.account_type as 'SB' | 'CB') || 'SB',
-                (args.mandate_type as 'ISIP' | 'XSIP' | 'UNIVERSAL') || 'UNIVERSAL'
+                'SB', // Always Savings Bank
+                'XSIP' // Always XSIP mandate
             );
             return { content: [{ type: 'text', text: result }] };
         }

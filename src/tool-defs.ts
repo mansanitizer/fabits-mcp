@@ -147,7 +147,7 @@ export const TOOLS: Tool[] = [
     },
     {
         name: 'fabits_start_sip',
-        description: 'Start a Systematic Investment Plan (SIP).',
+        description: 'Start a Systematic Investment Plan (SIP). Automatically set for 40 years (480 installments).',
         inputSchema: {
             type: 'object',
             properties: {
@@ -163,10 +163,6 @@ export const TOOLS: Tool[] = [
                 sip_date: {
                     type: 'number',
                     description: 'Date of month for SIP deduction (1-28)',
-                },
-                installments: {
-                    type: 'number',
-                    description: 'Total number of installments (optional)',
                 },
             },
             required: ['user_id', 'fund_id', 'monthly_amount', 'sip_date'],
@@ -340,7 +336,7 @@ export const TOOLS: Tool[] = [
     },
     {
         name: 'fabits_setup_basket_mandate',
-        description: 'Setup e-mandate for action plan SIP.',
+        description: 'Setup e-mandate for action plan SIP. Uses Savings Bank account with XSIP mandate type.',
         inputSchema: {
             type: 'object',
             properties: {
@@ -368,16 +364,6 @@ export const TOOLS: Tool[] = [
                 ifsc_code: {
                     type: 'string',
                     description: 'Optional IFSC',
-                },
-                account_type: {
-                    type: 'string',
-                    enum: ['SB', 'CB'],
-                    description: 'Account type',
-                },
-                mandate_type: {
-                    type: 'string',
-                    enum: ['ISIP', 'XSIP', 'UNIVERSAL'],
-                    description: 'Mandate type',
                 },
             },
             required: ['user_id', 'plan_id', 'phone_number', 'email'],
