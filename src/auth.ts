@@ -550,8 +550,10 @@ export async function getAuthStatus(tokenManager: TokenManager): Promise<string>
   } catch (error) {
     // Token might be expired or invalid
     if (axios.isAxiosError(error) && error.response?.status === 401) {
-      await tokenManager.clearToken();
-      return '❌ Session expired\n\nPlease login again using fabits_request_otp.';
+      // Do NOT auto-logout here. The interceptor would have logged out if it was a refresh failure.
+      // If we are here, it means even after refresh (or if refresh failed without clearing), we got 401.
+      // But clearing token here is aggressive.
+      return '⚠️ Session Status Unknown\n\nUnable to verify your session status. You might need to login again if this persists.';
     }
 
     // Return basic info if KYC check fails

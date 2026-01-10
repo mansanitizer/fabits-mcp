@@ -52,7 +52,7 @@ export async function startKYC(tokenManager: TokenManager, pan: string, dob: str
         );
 
         if (response.data.status === 'success' && response.data.result?.startKycUrl) {
-            return `✅ **KYC Link Generated!**\n\nPlease click the link below to complete your Video KYC verification:\n\n🔗 [Start Video KYC](${response.data.result.startKycUrl})\n\n**Instructions:**\n1. Click the link to open the secure KYC portal.\n2. Follow the on-screen instructions to verify your PAN and verify your identity.\n3. After completion, you will be redirected back to Fabits.\n4. **Important**: Once you are done, come back here and use 'fabits_check_kyc_status' to verify your status.`;
+            return `✅ **KYC Link Generated!**\n\nPlease click the link below to complete your KYC verification:\n\n🔗 [Start KYC](${response.data.result.startKycUrl})\n\n**Instructions:**\n1. Click the link to open the secure KYC portal.\n2. Follow the on-screen instructions to verify your PAN and verify your identity.\n3. After completion, you will be redirected back to Fabits.\n4. **Important**: Once you are done, come back here and use 'fabits_check_kyc_status' to verify your status.`;
         } else {
             throw new Error(response.data.result?.error || 'Unknown error generating KYC link');
         }
