@@ -1013,7 +1013,8 @@ export async function completeLumpsumUPI(
 /**
  * Complete Netbanking lumpsum investment
  * Returns a payment link for the user to complete the transaction
- * Sends OTP first for authentication (like UPI flow)
+ * IMPORTANT: OTP must be verified BEFORE calling this function (like UPI flow)
+ * Use fabits_send_transactional_otp and fabits_verify_transactional_otp first
  */
 export async function completeLumpsumNetbanking(
   tokenManager: TokenManager,
@@ -1024,36 +1025,6 @@ export async function completeLumpsumNetbanking(
 ): Promise<string> {
   try {
     const client = await createAuthenticatedClient(tokenManager);
-
-    // Step 0: Send transactional OTP (same as UPI flow)
-    console.error('\n=== STEP 0: SEND TRANSACTIONAL OTP (NETBANKING) ===');
-    console.error('Phone:', phoneNumber);
-    console.error('Email:', email);
-
-    try {
-      await sendTransactionalOTP(tokenManager, phoneNumber, email);
-
-      let otpResult = `📱 OTP Required for Netbanking Payment\n\n`;
-      otpResult += `Amount: ${formatCurrency(amount)}\n`;
-      otpResult += `Payment Method: Netbanking\n\n`;
-      otpResult += `An OTP has been sent to:\n`;
-      otpResult += `  Phone: ${phoneNumber}\n`;
-      otpResult += `  Email: ${email}\n\n`;
-      otpResult += `⚠️  NEXT STEPS:\n`;
-      otpResult += `1. Check your phone/email for the OTP\n`;
-      otpResult += `2. Use fabits_verify_transactional_otp to verify\n`;
-      otpResult += `3. After verification, call fabits_complete_lumpsum_netbanking again\n\n`;
-      otpResult += `Note: OTP is valid for 5 minutes`;
-
-      return otpResult;
-    } catch (otpError: any) {
-      // If OTP was already sent/verified, continue with order placement
-      if (otpError.message && otpError.message.includes('already')) {
-        console.error('OTP already verified, proceeding with order...');
-      } else {
-        throw otpError;
-      }
-    }
 
     // Get client code from token (uppercase)
     const clientCode = await getClientCode(tokenManager);

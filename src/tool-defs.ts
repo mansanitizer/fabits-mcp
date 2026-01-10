@@ -328,7 +328,7 @@ export const TOOLS: Tool[] = [
     },
     {
         name: 'fabits_complete_lumpsum_netbanking',
-        description: 'Complete Lumpsum investment via Netbanking. Requires OTP verification first. Returns a payment link.',
+        description: 'Complete Lumpsum investment via Netbanking. IMPORTANT: Must verify OTP first using fabits_send_transactional_otp and fabits_verify_transactional_otp. Returns payment link.',
         inputSchema: {
             type: 'object',
             properties: {
