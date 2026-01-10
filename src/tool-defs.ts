@@ -16,6 +16,7 @@ export const TOOLS: Tool[] = [
         inputSchema: {
             type: 'object',
             properties: {
+                ...USER_ID_PROP,
                 first_name: {
                     type: 'string',
                     description: 'User First Name'
@@ -33,7 +34,7 @@ export const TOOLS: Tool[] = [
                     description: 'User Mobile Number (10 digits)'
                 }
             },
-            required: ['first_name', 'last_name', 'email', 'phone_number']
+            required: ['user_id', 'first_name', 'last_name', 'email', 'phone_number']
         }
     },
     {
@@ -61,6 +62,7 @@ export const TOOLS: Tool[] = [
         inputSchema: {
             type: 'object',
             properties: {
+                ...USER_ID_PROP,
                 pan: {
                     type: 'string',
                     description: 'Permanent Account Number (PAN) of the user'
@@ -70,7 +72,7 @@ export const TOOLS: Tool[] = [
                     description: 'Date of Birth in DD-MM-YYYY format'
                 }
             },
-            required: ['pan', 'dob']
+            required: ['user_id', 'pan', 'dob']
         }
     },
     {
@@ -93,12 +95,13 @@ export const TOOLS: Tool[] = [
         inputSchema: {
             type: 'object',
             properties: {
+                ...USER_ID_PROP,
                 client_code: {
                     type: 'string',
                     description: 'User Client Code (obtained after KYC approval)'
                 }
             },
-            required: ['client_code']
+            required: ['user_id', 'client_code']
         }
     },
     {
