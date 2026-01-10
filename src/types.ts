@@ -199,6 +199,50 @@ export interface Portfolio {
   xirr?: number;
 }
 
+// ===== Sign Up Types =====
+
+export interface SignUpRequest {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phoneNumber: string;
+  termsConditions: boolean;
+  companyName?: string;
+}
+
+// ===== KYC Types =====
+
+export interface HyperVergeTokenResponse {
+  token: string;
+  expiresAt?: string;
+}
+
+export interface CustomerDetails {
+  uid: string;
+  phoneNumber: string;
+  kycPhoneNumber?: string;
+  email: string;
+  isElogDone: boolean;
+  firstName?: string;
+  lastName?: string;
+}
+
+export interface ElogAuthRequest {
+  clientCode: string;
+  loopbackUrl: string;
+  allowLoopbackMsg: string;
+}
+
+export interface UpdateElogStatusRequest {
+  kycPhoneNumber: string;
+  isElogDone: boolean;
+}
+
+export interface UpdatePrimaryPhoneRequest {
+  phoneNumber: string;
+  kycPhoneNumber: string;
+}
+
 // ===== API Response Wrapper =====
 
 export interface APIResponse<T = any> {
@@ -208,7 +252,10 @@ export interface APIResponse<T = any> {
   isError?: boolean;
   response?: {
     message: string;
+    data?: any;
   };
+  redirectUrl?: string; // For sign up redirection
+  isPartnerUser?: boolean;
 }
 
 // ===== Error Types =====

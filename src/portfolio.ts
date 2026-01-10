@@ -49,6 +49,13 @@ export async function getPortfolio(tokenManager: TokenManager): Promise<string> 
     console.error('🔍 PORTFOLIO API REQUEST');
     console.error('='.repeat(70));
 
+    const tokenData = await tokenManager.loadToken();
+    let kycWarning = '';
+
+    if (!tokenData?.clientCode) {
+      kycWarning = "⚠️  **KYC Status: Not Started / In Progress**\n\nYour KYC is not complete. Please complete KYC to start investing.\nTo start, say 'I want to do my KYC'.\n\n" + '='.repeat(50) + '\n\n';
+    }
+
     // Create authenticated client with bearer token
     const client = await createAuthenticatedClient(tokenManager);
     const fullUrl = `${CONFIG.BASE_URL}${CONFIG.ENDPOINTS.HOLDINGS}`;
@@ -246,7 +253,7 @@ export async function getPortfolio(tokenManager: TokenManager): Promise<string> 
     result += `• Transaction history: Use fabits_get_transactions\n`;
     result += `• Basket holdings: Use fabits_get_basket_holdings`;
 
-    return result;
+    return kycWarning + result;
   } catch (error) {
     console.error('\n' + '='.repeat(70));
     console.error('❌ PORTFOLIO API ERROR');

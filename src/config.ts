@@ -17,12 +17,18 @@ export const CONFIG = {
   ENDPOINTS: {
     // Authentication
     REQUEST_OTP: '/customerservice/v2/api/customer/validate',
+    ACTIVATE_ACCOUNT: '/authserver/api/auth/activate',
     VERIFY_OTP: '/authserver/api/auth/login/otp',
     REFRESH_TOKEN: '/authserver/api/auth/refresh',
     LOGOUT: '/authserver/api/auth/logout',
     SIGNUP: '/customerservice/api/customer/signup',
     KYC_STATUS: '/customerservice/api/hyperverge/checkKycInitiated',
     KYC_STATUSES: '/customerservice/api/customer/fetchCustomerKycStatuses',
+    HYPERVERGE_TOKEN: '/customerservice/api/hyperverge/accessToken',
+    CUSTOMER_DETAILS: '/customerservice/api/customer',
+    ELOG_AUTH: '/mutualfundservice/api/bseStar/api/elogAuthentication',
+    UPDATE_ELOG_STATUS: '/customerservice/api/customer/updateElogStatus',
+    UPDATE_PRIMARY_PHONE: '/customerservice/api/customer/updatePrimaryPhoneNumber',
 
     // Mutual Funds
     ALL_FUNDS: '/mutualfundservice/api/mfData/allFunds',

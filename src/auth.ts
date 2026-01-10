@@ -7,7 +7,7 @@ import { mkdir, readFile, writeFile } from 'fs/promises';
 import { dirname, join } from 'path';
 import axios, { AxiosInstance } from 'axios';
 import { CONFIG } from './config.js';
-import { AuthToken, LoginRequest, LoginResponse, KYCStatusResponse, APIResponse } from './types.js';
+import { AuthToken, LoginRequest, LoginResponse, KYCStatusResponse, APIResponse, SignUpRequest } from './types.js';
 
 /**
  * Token Manager - Handles secure storage and retrieval of auth tokens
@@ -253,13 +253,40 @@ export async function createAuthenticatedClient(tokenManager: TokenManager): Pro
 }
 
 /**
- * Step 1: Request OTP - Triggers OTP to be sent to phone number
+ * Format phone number to ensure it has +91 prefix if missing
  */
-export async function requestOTP(phoneNumber: string): Promise<string> {
+function formatPhoneNumber(phone: string): string {
+  // Remove whitespace
+  const cleaned = phone.replace(/\s+/g, '');
+
+  // If it starts with +, assume it has country code
+  if (cleaned.startsWith('+')) {
+    return cleaned;
+  }
+
+  // If it is 10 digits/starts with 6-9, assume Indian number and add +91
+  // This is a "default to +91" strategy
+  return `+91${cleaned}`;
+}
+
+/**
+ * Step 0: Sign Up - Register a new user
+ */
+export async function signUp(firstName: string, lastName: string, email: string, phoneNumber: string): Promise<string> {
   try {
+    const formattedPhone = formatPhoneNumber(phoneNumber);
+    const signUpData: SignUpRequest = {
+      firstName,
+      lastName,
+      email,
+      phoneNumber: formattedPhone,
+      termsConditions: true,
+      companyName: ''
+    };
+
     const response = await axios.post<APIResponse>(
-      `${CONFIG.BASE_URL}${CONFIG.ENDPOINTS.REQUEST_OTP}`,
-      { phoneNumber },
+      `${CONFIG.BASE_URL}${CONFIG.ENDPOINTS.SIGNUP}`,
+      signUpData,
       {
         timeout: CONFIG.REQUEST_TIMEOUT,
         headers: {
@@ -270,12 +297,54 @@ export async function requestOTP(phoneNumber: string): Promise<string> {
 
     const { data } = response;
 
+    if (data.isError) {
+      throw new Error(data.response?.message || data.message || 'Sign up failed');
+    }
+
+    if (data.isPartnerUser) {
+      return `⚠️ You already have an account on our partner platform (RedVision). Please continue on their platform: ${data.redirectUrl}`;
+    }
+
+    return `✅ Sign Up Successful!\n\nWelcome to Fabits, ${firstName}! Your account has been created.\n\nNow, please login to continue:\n1. Call fabits_request_otp with your phone number\n2. Call fabits_verify_otp with the code you receive`;
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      const message = error.response?.data?.response?.message || error.response?.data?.message || error.message;
+      throw new Error(`Sign up failed: ${message}`);
+    }
+    throw error;
+  }
+}
+
+/**
+ * Step 1: Request OTP - Triggers OTP to be sent to phone number
+ */
+export async function requestOTP(phoneNumber: string): Promise<string> {
+  try {
+    const formattedPhone = formatPhoneNumber(phoneNumber);
+    const response = await axios.post<APIResponse>(
+      `${CONFIG.BASE_URL}${CONFIG.ENDPOINTS.REQUEST_OTP}`,
+      { phoneNumber: formattedPhone },
+      {
+        timeout: CONFIG.REQUEST_TIMEOUT,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+
+    const { data } = response;
+
+    // Check for 204 No Content (User not registered)
+    if (response.status === 204 || !data) {
+      return `⚠️ User Not Found\n\nIt appears you are not registered with us yet.\n\nPlease sign up using the 'fabits_sign_up' tool providing your:\n- First Name\n- Last Name\n- Email\n- Phone Number`;
+    }
+
     // Check for errors
     if (data.isError) {
       throw new Error(data.message || 'Failed to send OTP');
     }
 
-    return `📱 OTP Sent!\n\nAn OTP has been sent to ${phoneNumber}\n\nPlease use fabits_verify_otp with your phone number and the OTP you received.`;
+    return `📱 OTP Sent!\n\nAn OTP has been sent to ${formattedPhone}\n\nPlease use fabits_verify_otp with your phone number and the OTP you received.`;
   } catch (error) {
     if (axios.isAxiosError(error)) {
       const message = error.response?.data?.message || error.message;
@@ -308,8 +377,9 @@ function decodeJWT(token: string): any {
  */
 export async function verifyOTP(phoneNumber: string, otp: string, tokenManager: TokenManager): Promise<string> {
   try {
+    const formattedPhone = formatPhoneNumber(phoneNumber);
     const requestData: LoginRequest = {
-      phoneNumber,
+      phoneNumber: formattedPhone,
       otp,
     };
 
@@ -338,7 +408,7 @@ export async function verifyOTP(phoneNumber: string, otp: string, tokenManager: 
     console.error('Response Data:', JSON.stringify(response.data, null, 2));
 
     const { data } = response;
-
+    // ... rest of verifyOTP logic
     // Check for access token
     if (!data.access_token) {
       console.error('\n=== VERIFY OTP ERROR ===');
@@ -356,7 +426,7 @@ export async function verifyOTP(phoneNumber: string, otp: string, tokenManager: 
     const authToken: AuthToken = {
       token: data.access_token,
       refreshToken: data.refresh_token,
-      phoneNumber: decodedToken.phoneNumber || phoneNumber,
+      phoneNumber: decodedToken.phoneNumber || formattedPhone,
       clientCode: decodedToken.uid,
       panNumber: decodedToken.panNumber,
     };
@@ -370,9 +440,13 @@ export async function verifyOTP(phoneNumber: string, otp: string, tokenManager: 
 
     await tokenManager.saveToken(authToken);
 
-    let loginMessage = `✅ Login Successful!\n\nPhone: ${authToken.phoneNumber}\nClient Code: ${authToken.clientCode || 'Not available'}\nPAN: ${authToken.panNumber || 'Not available'}\nName: ${decodedToken.firstName || ''} ${decodedToken.lastName || ''}\nEmail: ${decodedToken.email || 'Not available'}\n\nYour session is active. You can now search funds and make investments.`;
+    if (!authToken.clientCode) {
+      return `✅ Login Successful (Action Required)\n\nWelcome! You are now logged in.\n\n⚠️ **KYC Incomplete**: You cannot start investing until you complete your KYC verification.\n\nPlease proceed by using the 'fabits_start_kyc' tool with your PAN number and Date of Birth.`;
+    }
 
-    // Auto-fetch basket holdings after successful login
+    let loginMessage = `✅ Login Successful!\n\nPhone: ${authToken.phoneNumber}\nClient Code: ${authToken.clientCode}\nPAN: ${authToken.panNumber || 'Not available'}\nName: ${decodedToken.firstName || ''} ${decodedToken.lastName || ''}\nEmail: ${decodedToken.email || 'Not available'}\n\nYour session is active. You can now search funds and make investments.`;
+
+    // Auto-fetch basket holdings after successful login (only for fully authenticated users)
     try {
       console.error('\n=== AUTO-FETCHING BASKET HOLDINGS ===');
       const { getBasketHoldings } = await import('./portfolio.js');
@@ -616,6 +690,75 @@ export async function logout(tokenManager: TokenManager): Promise<string> {
   } catch (error) {
     if (error instanceof Error) {
       throw new Error(`Logout failed: ${error.message}`);
+    }
+    throw error;
+  }
+}
+
+/**
+ * Step 0.5: Activate Account - Validates OTP during activation and returns authentication token
+ */
+export async function activateAccount(phoneNumber: string, otp: string, tokenManager: TokenManager): Promise<string> {
+  try {
+    const formattedPhone = formatPhoneNumber(phoneNumber);
+    const requestData: LoginRequest = {
+      phoneNumber: formattedPhone,
+      otp,
+    };
+
+    const url = `${CONFIG.BASE_URL}${CONFIG.ENDPOINTS.ACTIVATE_ACCOUNT}`;
+
+    console.error('\n=== ACTIVATE ACCOUNT REQUEST ===');
+    console.error('URL:', url);
+    console.error('Request Body:', JSON.stringify(requestData, null, 2));
+
+    const response = await axios.post<LoginResponse>(
+      url,
+      requestData,
+      {
+        timeout: CONFIG.REQUEST_TIMEOUT,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+
+    console.error('\n=== ACTIVATE ACCOUNT RESPONSE ===');
+    console.error('Status:', response.status);
+    console.error('Response Data:', JSON.stringify(response.data, null, 2));
+
+    const { data } = response;
+
+    // Check for access token
+    if (!data.access_token) {
+      throw new Error('Invalid OTP or activation failed');
+    }
+
+    // Decode JWT to extract user info
+    const decodedToken = decodeJWT(data.access_token);
+
+    // Store token
+    const authToken: AuthToken = {
+      token: data.access_token,
+      refreshToken: data.refresh_token,
+      phoneNumber: decodedToken.phoneNumber || formattedPhone,
+      clientCode: decodedToken.uid,
+      panNumber: decodedToken.panNumber,
+    };
+
+    await tokenManager.saveToken(authToken);
+
+    // Check KYC Status
+    if (!authToken.clientCode) {
+      return `✅ Account Activated!\n\nYour account has been successfully activated.\n\n⚠️ **Next Step: KYC Required**\n\nYou cannot invest until you complete your KYC.\n\nPlease proceed by using the 'fabits_start_kyc' tool with your PAN number and Date of Birth.`;
+    }
+
+    return `✅ Account Activated & Logged In!\n\nWelcome to Fabits!`;
+  } catch (error) {
+    console.error('\n=== ACTIVATE ACCOUNT EXCEPTION ===');
+    if (axios.isAxiosError(error)) {
+      const message = error.response?.data?.message || error.message;
+      throw new Error(`Activation failed: ${message}`);
     }
     throw error;
   }

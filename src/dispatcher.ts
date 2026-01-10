@@ -1,5 +1,6 @@
 
-import { TokenManager, requestOTP, verifyOTP, getAuthStatus, refreshAccessToken, logout } from './auth.js';
+import { TokenManager, requestOTP, verifyOTP, getAuthStatus, refreshAccessToken, logout, signUp, activateAccount } from './auth.js';
+import { startKYC, checkKYCStatus, completeElogAuthentication } from './kyc.js';
 import { searchFunds, getFundDetails, getStarFunds } from './funds.js';
 import { investLumpsum, startSIP, redeemFund, investBasket, getAllBaskets, sendTransactionalOTP, verifyTransactionalOTP, investLumpsumUPI, completeLumpsumUPI, completeLumpsumNetbanking, checkPaymentStatus, investBasketSIP, investBasketOneTime, registerMandate, checkMandateStatus, findUserMandates } from './invest.js';
 import { getPortfolio, getTransactions, cancelSIP, getBasketHoldings, getActionPlans } from './portfolio.js';
@@ -10,6 +11,48 @@ import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
 export async function dispatchToolCall(name: string, args: any, tokenManager: TokenManager) {
     switch (name) {
         // Authentication
+        case 'fabits_sign_up': {
+            const result = await signUp(
+                args.first_name as string,
+                args.last_name as string,
+                args.email as string,
+                args.phone_number as string
+            );
+            return { content: [{ type: 'text', text: result }] };
+        }
+
+
+        case 'fabits_activate_account': {
+            const result = await activateAccount(
+                args.phone_number as string,
+                args.otp as string,
+                tokenManager
+            );
+            return { content: [{ type: 'text', text: result }] };
+        }
+
+        case 'fabits_start_kyc': {
+            const result = await startKYC(
+                tokenManager,
+                args.pan as string,
+                args.dob as string
+            );
+            return { content: [{ type: 'text', text: result }] };
+        }
+
+        case 'fabits_check_kyc_status': {
+            const result = await checkKYCStatus(tokenManager);
+            return { content: [{ type: 'text', text: result }] };
+        }
+
+        case 'fabits_complete_elog_authentication': {
+            const result = await completeElogAuthentication(
+                tokenManager,
+                args.client_code as string
+            );
+            return { content: [{ type: 'text', text: result }] };
+        }
+
         case 'fabits_request_otp': {
             const result = await requestOTP(
                 args.phone_number as string

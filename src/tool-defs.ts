@@ -11,6 +11,97 @@ const USER_ID_PROP = {
 export const TOOLS: Tool[] = [
     // Authentication Tools
     {
+        name: 'fabits_sign_up',
+        description: 'Register a new user account with Fabits. Required if the phone number is not registered.',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                first_name: {
+                    type: 'string',
+                    description: 'User First Name'
+                },
+                last_name: {
+                    type: 'string',
+                    description: 'User Last Name'
+                },
+                email: {
+                    type: 'string',
+                    description: 'User Email Address'
+                },
+                phone_number: {
+                    type: 'string',
+                    description: 'User Mobile Number (10 digits)'
+                }
+            },
+            required: ['first_name', 'last_name', 'email', 'phone_number']
+        }
+    },
+    {
+        name: 'fabits_activate_account',
+        description: 'Activate a newly created account using the OTP received after signing up. This logs the user in automatically.',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                ...USER_ID_PROP,
+                phone_number: {
+                    type: 'string',
+                    description: 'User phone number'
+                },
+                otp: {
+                    type: 'string',
+                    description: 'OTP received'
+                }
+            },
+            required: ['user_id', 'phone_number', 'otp']
+        }
+    },
+    {
+        name: 'fabits_start_kyc',
+        description: 'Initiate the HyperVerge Video KYC process for a logged-in user. Requires PAN and DOB.',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                pan: {
+                    type: 'string',
+                    description: 'Permanent Account Number (PAN) of the user'
+                },
+                dob: {
+                    type: 'string',
+                    description: 'Date of Birth in DD-MM-YYYY format'
+                }
+            },
+            required: ['pan', 'dob']
+        }
+    },
+    {
+        name: 'fabits_check_kyc_status',
+        description: 'Check the detailed status of the user\'s KYC application.',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                user_id: {
+                    type: 'string',
+                    description: 'User Phone Number (for context)'
+                }
+            },
+            required: ['user_id']
+        }
+    },
+    {
+        name: 'fabits_complete_elog_authentication',
+        description: 'Trigger the BSE e-Log authentication email for the user. Requires valid Client Code.',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                client_code: {
+                    type: 'string',
+                    description: 'User Client Code (obtained after KYC approval)'
+                }
+            },
+            required: ['client_code']
+        }
+    },
+    {
         name: 'fabits_request_otp',
         description: 'Step 1 of login: Request OTP to be sent to phone number. User must call this first before verifying OTP.',
         inputSchema: {
@@ -452,21 +543,6 @@ export const TOOLS: Tool[] = [
                 },
             },
             required: ['user_id'],
-        },
-    },
-    {
-        name: 'fabits_cancel_sip',
-        description: 'Cancel an active SIP.',
-        inputSchema: {
-            type: 'object',
-            properties: {
-                ...USER_ID_PROP,
-                sip_registration_number: {
-                    type: 'string',
-                    description: 'SIP registration number',
-                },
-            },
-            required: ['user_id', 'sip_registration_number'],
         },
     },
     {
