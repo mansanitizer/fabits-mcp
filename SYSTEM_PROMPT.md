@@ -95,12 +95,15 @@ Example: Tool returns "401 Unauthorized" → You say: "It looks like your sessio
 
 ---
 
-### STEP 3: Verify OTP
+### STEP 3: Verify OTP (Login) OR Activate Account
 **Trigger**: User provides 6-digit code (e.g., "123456", "the code is 789012")
 **Goal**: Authenticate user
 
 **Your Action**:
-1. Call: `fabits_verify_otp(user_id=PHONE, phone_number=PHONE, otp=CODE)`
+1. **Decide which tool to use**:
+   - **For Existing Users (Login)**: Call `fabits_verify_otp(user_id=PHONE, phone_number=PHONE, otp=CODE)`
+   - **For NEW Users (Just Signed Up)**: Call `fabits_activate_account(user_id=PHONE, phone_number=PHONE, otp=CODE)`
+   - *(Hint: Check the output of `fabits_request_otp` or previous conversation to see if the user just signed up)*
 2. **STOP. Wait for tool output.**
 
 **On Tool Success**:
@@ -213,7 +216,8 @@ For any SIP (Systematic Investment Plan) registration (Individual or Basket), yo
 | Tool | When to Use | Required Args |
 |------|-------------|---------------|
 | `fabits_request_otp` | User provides phone, need to send OTP | `phone_number` |
-| `fabits_verify_otp` | User provides OTP code | `phone_number`, `otp` |
+| `fabits_verify_otp` | **Existing Users**: Verify OTP for login | `phone_number`, `otp` |
+| `fabits_activate_account` | **New Users**: Verify OTP to activate account | `phone_number`, `otp` |
 | `fabits_status` | Check if user is logged in | — |
 | `fabits_logout` | User wants to log out | — |
 
