@@ -8,40 +8,61 @@ import { APIResponse, HyperVergeTokenResponse, CustomerDetails, UpdateElogStatus
 const HYPERVERGE_WORKFLOW_ID = 'yGguwb_21_05_25_15_23_04';
 
 /**
+ * Generate a simple unique ID for transactions
+ */
+function generateTransactionId(): string {
+    return 'txn_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+}
+
+/**
  * Start KYC Process
- * 1. Validates input
- * 2. Fetches HyperVerge Access Token (for verification that backend is accessible)
- * 3. Returns the KYC URL for the user to visit
+ * Uses HyperVerge Onboard Links API to generate a standalone KYC link.
  */
 export async function startKYC(tokenManager: TokenManager, pan: string, dob: string): Promise<string> {
     try {
-        const client = await createAuthenticatedClient(tokenManager);
+        const tokenData = await tokenManager.loadToken();
+        if (!tokenData) throw new Error("Not logged in");
 
-        // 1. Get HyperVerge Access Token
-        // Using the exact endpoint from reference: customerservice/api/hyperverge/accessToken
-        // It seems the reference code does a simple POST without specific headers like workflowId in headers, 
-        // but maybe the backend handles it.
-        // Let's try the simple POST as seen in KycLanding.jsx: post(`${env.UAT_URL}customerservice/api/hyperverge/accessToken`)
+        const transactionId = generateTransactionId();
 
-        const tokenResponse = await client.post<APIResponse<HyperVergeTokenResponse>>(
-            CONFIG.ENDPOINTS.HYPERVERGE_TOKEN,
-            {}
+        const payload = {
+            workflowId: HYPERVERGE_WORKFLOW_ID,
+            transactionId: transactionId,
+            redirectUrl: "https://mywealth.fabits.com/dashboard/start-kyc",
+            inputs: {
+                panNumber: pan,
+                dob: dob, // Expected format by Link KYC API? usually YYYY-MM-DD or DD-MM-YYYY depending on workflow.
+                // Assuming user provides what tool requires. If not, API might fail or UI will ask.
+                mobileNumber: tokenData.phoneNumber,
+            },
+            mobileNumber: tokenData.phoneNumber,
+            expiry: 1440
+        };
+
+        const response = await axios.post(
+            'https://ind.idv.hyperverge.co/v1/link-kyc/start',
+            payload,
+            {
+                headers: {
+                    'Content-Type': 'application/json',
+                    'appId': CONFIG.HYPERVERGE_APP_ID,
+                    'appKey': CONFIG.HYPERVERGE_APP_KEY
+                }
+            }
         );
 
-        if (tokenResponse.data.isError || !tokenResponse.data.data?.token) {
-            console.error('HyperVerge Token Response:', JSON.stringify(tokenResponse.data, null, 2));
-            throw new Error('Failed to generate KYC session token');
+        if (response.data.status === 'success' && response.data.result?.startKycUrl) {
+            return `✅ **KYC Link Generated!**\n\nPlease click the link below to complete your Video KYC verification:\n\n🔗 [Start Video KYC](${response.data.result.startKycUrl})\n\n**Instructions:**\n1. Click the link to open the secure KYC portal.\n2. Follow the on-screen instructions to verify your PAN and verify your identity.\n3. After completion, you will be redirected back to Fabits.\n4. **Important**: Once you are done, come back here and use 'fabits_check_kyc_status' to verify your status.`;
+        } else {
+            throw new Error(response.data.result?.error || 'Unknown error generating KYC link');
         }
-
-        const accessToken = tokenResponse.data.data.token;
-
-        // Construct the HyperVerge URL
-        return `⚠️  **KYC Action Required**\n\nTo complete video KYC, you need to use the visual interface.\n\nPlease visit https://mywealth.fabits.com/kyc-landing to complete your video verification using the PAN (${pan}) and DOB (${dob}) you provided.\n\nOnce completed, come back here and say "I have finished my KYC".`;
 
     } catch (error) {
         if (axios.isAxiosError(error)) {
-            const message = error.response?.data?.message || error.message;
-            throw new Error(`Failed to initiate KYC: ${message}`);
+            const message = error.response?.data?.result?.error || error.message;
+
+            // Fallback to landing page if API fails
+            return `⚠️ **KYC Link Generation Failed** (${message})\n\nHowever, you can still complete your KYC manually.\n\nPlease visit: https://mywealth.fabits.com/kyc-landing\nAnd use your PAN (${pan}) and DOB (${dob}) to proceed.`;
         }
         throw error;
     }

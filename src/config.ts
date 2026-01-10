@@ -13,6 +13,10 @@ export const CONFIG = {
   // Auth token storage location
   TOKEN_FILE: join(homedir(), '.config', 'fabits-mcp', 'auth.json'),
 
+  // HyperVerge Credentials
+  HYPERVERGE_APP_ID: 'ycbl3i',
+  HYPERVERGE_APP_KEY: 'u39q1yax9a8fk9jsy6d5',
+
   // API endpoints
   ENDPOINTS: {
     // Authentication
