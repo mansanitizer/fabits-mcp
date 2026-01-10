@@ -58,7 +58,7 @@ export const TOOLS: Tool[] = [
     },
     {
         name: 'fabits_start_kyc',
-        description: 'Initiate the HyperVerge Video KYC process for a logged-in user. Requires PAN and DOB.',
+        description: 'Initiate the KYC process for a logged-in user. Requires PAN and DOB. Returns a link to complete the video verification.',
         inputSchema: {
             type: 'object',
             properties: {

@@ -8,16 +8,9 @@ import { APIResponse, HyperVergeTokenResponse, CustomerDetails, UpdateElogStatus
 const HYPERVERGE_WORKFLOW_ID = 'yGguwb_21_05_25_15_23_04';
 
 /**
- * Generate a simple unique ID for transactions
- */
-function generateTransactionId(): string {
-    return 'txn_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-}
-
-/**
  * Start KYC Process
  * 1. Validates input
- * 2. Fetches HyperVerge Access Token
+ * 2. Fetches HyperVerge Access Token (for verification that backend is accessible)
  * 3. Returns the KYC URL for the user to visit
  */
 export async function startKYC(tokenManager: TokenManager, pan: string, dob: string): Promise<string> {
@@ -25,33 +18,24 @@ export async function startKYC(tokenManager: TokenManager, pan: string, dob: str
         const client = await createAuthenticatedClient(tokenManager);
 
         // 1. Get HyperVerge Access Token
+        // Using the exact endpoint from reference: customerservice/api/hyperverge/accessToken
+        // It seems the reference code does a simple POST without specific headers like workflowId in headers, 
+        // but maybe the backend handles it.
+        // Let's try the simple POST as seen in KycLanding.jsx: post(`${env.UAT_URL}customerservice/api/hyperverge/accessToken`)
+
         const tokenResponse = await client.post<APIResponse<HyperVergeTokenResponse>>(
             CONFIG.ENDPOINTS.HYPERVERGE_TOKEN,
-            {},
-            {
-                headers: {
-                    workflowId: HYPERVERGE_WORKFLOW_ID,
-                    transactionId: generateTransactionId()
-                }
-            }
+            {}
         );
 
         if (tokenResponse.data.isError || !tokenResponse.data.data?.token) {
+            console.error('HyperVerge Token Response:', JSON.stringify(tokenResponse.data, null, 2));
             throw new Error('Failed to generate KYC session token');
         }
 
         const accessToken = tokenResponse.data.data.token;
 
         // Construct the HyperVerge URL
-        // Since we cannot run the SDK in the CLI, we direct the user to a web link
-        // However, usually the SDK is embedded. 
-        // Ideally, we would generate a magic link if the backend supported it.
-        // Given the constraints, we will return instructions.
-
-        // NOTE: In the reference frontend, it uses the HyperVerge Web SDK. 
-        // Since we are an MCP, we can't render that.
-        // The BEST we can do is direct them to the Fabits Web App to complete it.
-
         return `⚠️  **KYC Action Required**\n\nTo complete video KYC, you need to use the visual interface.\n\nPlease visit https://mywealth.fabits.com/kyc-landing to complete your video verification using the PAN (${pan}) and DOB (${dob}) you provided.\n\nOnce completed, come back here and say "I have finished my KYC".`;
 
     } catch (error) {
