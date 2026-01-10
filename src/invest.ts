@@ -355,38 +355,125 @@ export async function investBasket(
  */
 export async function getAllBaskets(tokenManager: TokenManager): Promise<string> {
   try {
-    const client = await createAuthenticatedClient(tokenManager);
+    console.error('\n' + '='.repeat(70));
+    console.error('🗂️  UNIVERSAL BASKETS API REQUEST');
+    console.error('='.repeat(70));
 
+    const client = await createAuthenticatedClient(tokenManager);
+    const fullUrl = `${CONFIG.BASE_URL}${CONFIG.ENDPOINTS.ALL_BASKETS}`;
+
+    console.error(`📡 Endpoint: ${fullUrl}`);
+    console.error(`🔑 Using Bearer Token Authentication`);
+    console.error(`⏰ Request Time: ${new Date().toISOString()}`);
+
+    const startTime = Date.now();
     const response = await client.get<APIResponse<Basket[]>>(
       CONFIG.ENDPOINTS.ALL_BASKETS
     );
+    const duration = Date.now() - startTime;
+
+    console.error(`\n✅ Response received in ${duration}ms`);
+    console.error(`📊 Status Code: ${response.status}`);
+    console.error(`📦 Response Headers:`, JSON.stringify(response.headers, null, 2));
+
+    // Log response structure (truncated for security)
+    const responsePreview = JSON.stringify(response.data, null, 2);
+    console.error(`\n📄 Response Preview (first 1000 chars):`);
+    console.error(responsePreview.substring(0, 1000) + (responsePreview.length > 1000 ? '...' : ''));
 
     if (response.data.isError) {
-      throw new Error(response.data.response?.message || 'Failed to fetch baskets');
+      const errorMsg = response.data.response?.message || response.data.message || 'Failed to fetch baskets';
+      console.error(`\n❌ API Error: ${errorMsg}`);
+      throw new Error(errorMsg);
     }
 
-    const baskets = response.data.data || [];
+    // Extract baskets - API may return data in different formats
+    let baskets = response.data.data || (response.data as any).baskets || [];
+
+    console.error(`\n📋 Baskets Analysis:`);
+    console.error(`   - Total baskets found: ${baskets.length}`);
+    if (baskets.length > 0) {
+      console.error(`   - Sample basket keys:`, Object.keys(baskets[0]).join(', '));
+    }
 
     if (baskets.length === 0) {
+      console.error('\n📭 No baskets available');
       return 'No investment baskets available at this time.';
     }
+
+    // Normalize basket data - API may use different field names
+    // Note: API returns individual fund records, we need to group by basketId
+    const basketMap = new Map<any, any>();
+
+    baskets.forEach((item: any) => {
+      const basketId = item.universalBasketId || item.basketId || item.id;
+      const basketName = item.universalBasketName || item.basketName || item.name || item.title || 'Unnamed Basket';
+
+      if (!basketMap.has(basketId)) {
+        basketMap.set(basketId, {
+          basketId: basketId,
+          basketName: basketName,
+          description: item.description || item.desc || item.category || '',
+          category: item.category || item.basketCategory,
+          riskLevel: item.riskLevel || item.risk,
+          minAmount: item.minOneTime || item.minAmount || item.minimumAmount || item.min_amount,
+          expectedReturns: item.expectedReturns || item.returns || item.expected_returns,
+          funds: []
+        });
+      }
+
+      // Add fund to basket
+      if (item.schemeName || item.fundName) {
+        const basket = basketMap.get(basketId);
+        basket.funds.push({
+          allocation: item.weightageOneTime || item.weightage || item.allocation || item.percent || 0,
+          fundName: item.schemeName || item.fundName || item.name || 'Unknown Fund',
+          schemeCode: item.bseSchemeCode || item.schemeCode,
+          assetClass: item.assetClass
+        });
+      }
+    });
+
+    const uniqueBaskets = Array.from(basketMap.values());
+
+    // Filter out unwanted baskets
+    const filteredBaskets = uniqueBaskets.filter((basket: any) => {
+      // Remove basket IDs 1 and 2
+      if (basket.basketId === 1 || basket.basketId === 2) return false;
+
+      // Remove baskets with "US Tech" in the name
+      if (basket.basketName && basket.basketName.toLowerCase().includes('us')) return false;
+      if (basket.basketName && basket.basketName.toLowerCase().includes('tech')) return false;
+      if (basket.description && basket.description.toLowerCase().includes('us tech')) return false;
+
+      return true;
+    });
+
+    console.error(`   - Unique baskets after grouping: ${uniqueBaskets.length}`);
+    console.error(`   - Baskets after filtering: ${filteredBaskets.length}`);
+    console.error(`   - Baskets normalized successfully`);
+    console.error('='.repeat(70) + '\n');
 
     let result = `🗂️  Available Investment Baskets\n`;
     result += `${'='.repeat(35)}\n\n`;
 
-    baskets.forEach((basket, index) => {
+    filteredBaskets.forEach((basket: any, index: number) => {
       result += `${index + 1}. ${basket.basketName}\n`;
-      result += `   Basket ID: ${basket.basketId}\n`;
-      result += `   ${basket.description}\n`;
+      result += `   ID: ${basket.basketId}\n`;
+
+      // Only show fields that have values
+      if (basket.description) result += `   ${basket.description}\n`;
       if (basket.category) result += `   Category: ${basket.category}\n`;
-      if (basket.riskLevel) result += `   Risk Level: ${basket.riskLevel}\n`;
-      if (basket.minAmount) result += `   Min Investment: ${formatCurrency(basket.minAmount)}\n`;
+      if (basket.riskLevel) result += `   Risk: ${basket.riskLevel}\n`;
+      if (basket.minAmount) result += `   Min: ${formatCurrency(basket.minAmount)}\n`;
       if (basket.expectedReturns) result += `   Expected Returns: ${basket.expectedReturns}% p.a.\n`;
 
       if (basket.funds && basket.funds.length > 0) {
-        result += `   Funds: ${basket.funds.length} funds\n`;
-        basket.funds.forEach((fund) => {
-          result += `   • ${fund.allocation}% - ${fund.fundName}\n`;
+        result += `   Funds (${basket.funds.length}):\n`;
+        basket.funds.forEach((fund: any) => {
+          const allocation = fund.allocation || fund.weightage || fund.percent || 0;
+          const fundName = fund.fundName || fund.schemeName || fund.name || 'Unknown Fund';
+          result += `   • ${allocation}% ${fundName}\n`;
         });
       }
 
@@ -397,9 +484,20 @@ export async function getAllBaskets(tokenManager: TokenManager): Promise<string>
 
     return result;
   } catch (error) {
+    console.error('\n' + '='.repeat(70));
+    console.error('❌ BASKETS API ERROR');
+    console.error('='.repeat(70));
+
     if (error instanceof Error) {
+      console.error(`Error Message: ${error.message}`);
+      if (error.stack) {
+        console.error(`\nStack Trace:\n${error.stack}`);
+      }
       throw new Error(`Failed to fetch baskets: ${error.message}`);
     }
+
+    console.error('Unknown error:', error);
+    console.error('='.repeat(70) + '\n');
     throw error;
   }
 }
