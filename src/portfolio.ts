@@ -41,56 +41,126 @@ function formatDate(dateString: string): string {
 
 /**
  * Get user's complete portfolio with holdings
- */
-/**
- * Get user's complete portfolio with holdings
  * Fetches both Fabits managed assets and external linked assets
  */
 export async function getPortfolio(tokenManager: TokenManager): Promise<string> {
   try {
+    console.error('\n' + '='.repeat(70));
+    console.error('🔍 PORTFOLIO API REQUEST');
+    console.error('='.repeat(70));
+
+    // Create authenticated client with bearer token
     const client = await createAuthenticatedClient(tokenManager);
+    const fullUrl = `${CONFIG.BASE_URL}${CONFIG.ENDPOINTS.HOLDINGS}`;
 
-    console.error('\n=== PORTFOLIO REQUEST ===');
-    console.error('URL:', `${CONFIG.BASE_URL}${CONFIG.ENDPOINTS.HOLDINGS}`);
+    console.error(`📡 Endpoint: ${fullUrl}`);
+    console.error(`🔑 Using Bearer Token Authentication`);
+    console.error(`⏰ Request Time: ${new Date().toISOString()}`);
 
+    // Make API request
+    const startTime = Date.now();
     const response = await client.get<APIResponse<any>>(
       CONFIG.ENDPOINTS.HOLDINGS
     );
+    const duration = Date.now() - startTime;
 
-    if (response.data.isError) {
-      throw new Error(response.data.response?.message || 'Failed to fetch portfolio');
+    console.error(`\n✅ Response received in ${duration}ms`);
+    console.error(`📊 Status Code: ${response.status}`);
+    console.error(`📦 Response Headers:`, JSON.stringify(response.headers, null, 2));
+
+    // Log response structure (truncated for security)
+    const responsePreview = JSON.stringify(response.data, null, 2);
+    console.error(`\n📄 Response Preview (first 800 chars):`);
+    console.error(responsePreview.substring(0, 800) + (responsePreview.length > 800 ? '...' : ''));
+
+    // Validate response
+    if (!response.data) {
+      throw new Error('Empty response received from API');
     }
 
-    const data = response.data.data;
+    if (response.data.isError) {
+      const errorMsg = response.data.response?.message || response.data.message || 'Failed to fetch portfolio';
+      console.error(`\n❌ API Error: ${errorMsg}`);
+      throw new Error(errorMsg);
+    }
+
+    // Extract data - API can return data in response.data.data OR directly in response.data
+    let data = response.data.data || response.data;
+
+    console.error(`\n📋 Data Structure Analysis:`);
+    console.error(`   - Type: ${Array.isArray(data) ? 'Array' : typeof data}`);
+    if (Array.isArray(data)) {
+      console.error(`   - Length: ${data.length} items`);
+    } else if (typeof data === 'object') {
+      console.error(`   - Keys: ${Object.keys(data).join(', ')}`);
+    }
 
     // Initialize holding lists
     let fabitsHoldings: Holding[] = [];
     let externalHoldings: Holding[] = [];
-
-    // Flatten data if it's in the nested structure mentioned (though usually API returns flat or pre-grouped)
-    // Based on user feedback: logic depends on isOutsideData flag on individual items
-
     let allHoldings: Holding[] = [];
 
+    // Parse holdings from response
     if (Array.isArray(data)) {
       allHoldings = data;
+      console.error(`   ✓ Parsed as direct array`);
     } else if (typeof data === 'object' && data !== null) {
-      // If data comes in as { mainData: [...] } or { contents: { mainData: [...] } }
-      // We try to find the array
+      // Try different possible structures
       allHoldings = data.mainData || data.holdings || [];
 
-      // If we previously tried to support split keys, we check them too just in case
-      if (data.fabitsHoldings) allHoldings = [...allHoldings, ...data.fabitsHoldings];
-      if (data.externalHoldings) allHoldings = [...allHoldings, ...data.externalHoldings];
+      // Support split structure if it exists
+      if (data.fabitsHoldings) {
+        allHoldings = [...allHoldings, ...data.fabitsHoldings];
+        console.error(`   ✓ Added ${data.fabitsHoldings.length} from fabitsHoldings`);
+      }
+      if (data.externalHoldings) {
+        allHoldings = [...allHoldings, ...data.externalHoldings];
+        console.error(`   ✓ Added ${data.externalHoldings.length} from externalHoldings`);
+      }
+
+      console.error(`   ✓ Parsed from nested structure`);
     }
 
+    console.error(`\n📊 Holdings Summary:`);
+    console.error(`   - Total holdings found: ${allHoldings.length}`);
+
+    // Normalize holdings data - API uses different field names
+    allHoldings = allHoldings.map((item: any) => {
+      const units = item.netUnits || item.balance || item.units || 0;
+      const currentNav = item.closerate || item.currentNav || 0;
+      const investedValue = item.netInvestedAmt || item.investedValue || 0;
+      const currentValue = item.holding || item.currentValue || (units * currentNav);
+      const returns = currentValue - investedValue;
+      const returnsPercentage = investedValue > 0 ? (returns / investedValue) * 100 : 0;
+
+      return {
+        fundId: item.schemeCode || item.fundId || '',
+        fundName: item.schemeName || item.fundName || 'Unknown Fund',
+        schemeCode: item.bseSchemeCode || item.schemeCode || '',
+        units: units,
+        avgNav: item.avgNav || (investedValue / units) || 0,
+        currentNav: currentNav,
+        investedValue: investedValue,
+        currentValue: currentValue,
+        returns: returns,
+        returnsPercentage: returnsPercentage,
+        folioNumber: item.folioNumber || item.folioNo,
+        isOutsideData: item.isOutsideData,
+        holdingType: item.holdingType
+      } as Holding;
+    });
+
     // Split based on isOutsideData flag
-    // 0 = Fabits (Internal)
-    // 1 (or truthy/undefined in some contexts, but usually explicit 1) = External
+    // 0 = Fabits (Internal/Managed)
+    // 1 or truthy = External/Linked
     fabitsHoldings = allHoldings.filter(h => h.isOutsideData === 0);
     externalHoldings = allHoldings.filter(h => h.isOutsideData !== 0);
 
+    console.error(`   - Fabits managed: ${fabitsHoldings.length}`);
+    console.error(`   - External linked: ${externalHoldings.length}`);
+
     if (fabitsHoldings.length === 0 && externalHoldings.length === 0) {
+      console.error('\n📭 Portfolio is empty');
       return `📊 Your Portfolio is Empty\n\n` +
         `Start investing to build your wealth!\n\n` +
         `💡 Get started:\n` +
@@ -115,6 +185,12 @@ export async function getPortfolio(tokenManager: TokenManager): Promise<string> 
     const grandTotalCurrent = fabitsTotals.current + externalTotals.current;
     const grandTotalReturns = grandTotalCurrent - grandTotalInvested;
     const grandTotalReturnsPercent = grandTotalInvested > 0 ? (grandTotalReturns / grandTotalInvested) * 100 : 0;
+
+    console.error(`\n💰 Portfolio Totals:`);
+    console.error(`   - Total Invested: ₹${grandTotalInvested.toFixed(2)}`);
+    console.error(`   - Current Value: ₹${grandTotalCurrent.toFixed(2)}`);
+    console.error(`   - Returns: ₹${grandTotalReturns.toFixed(2)} (${grandTotalReturnsPercent.toFixed(2)}%)`);
+    console.error('='.repeat(70) + '\n');
 
     // Build result
     let result = `📊 Your Portfolio Overview\n`;
@@ -167,14 +243,25 @@ export async function getPortfolio(tokenManager: TokenManager): Promise<string> 
     if (fabitsHoldings.length > 0) {
       result += `• Redeem Fabits funds: Use fabits_redeem\n`;
     }
-    result += `• View SIPs: Use fabits_get_sips\n`;
-    result += `• Transaction history: Use fabits_get_transactions`;
+    result += `• Transaction history: Use fabits_get_transactions\n`;
+    result += `• Basket holdings: Use fabits_get_basket_holdings`;
 
     return result;
   } catch (error) {
+    console.error('\n' + '='.repeat(70));
+    console.error('❌ PORTFOLIO API ERROR');
+    console.error('='.repeat(70));
+
     if (error instanceof Error) {
+      console.error(`Error Message: ${error.message}`);
+      if (error.stack) {
+        console.error(`\nStack Trace:\n${error.stack}`);
+      }
       throw new Error(`Failed to fetch portfolio: ${error.message}`);
     }
+
+    console.error('Unknown error:', error);
+    console.error('='.repeat(70) + '\n');
     throw error;
   }
 }

@@ -1,8 +1,8 @@
 
 import { TokenManager, requestOTP, verifyOTP, getAuthStatus, refreshAccessToken, logout } from './auth.js';
 import { searchFunds, getFundDetails, getStarFunds } from './funds.js';
-import { investLumpsum, startSIP, redeemFund, investBasket, getAllBaskets, sendTransactionalOTP, verifyTransactionalOTP, investLumpsumUPI, completeLumpsumUPI, completeLumpsumNetbanking, checkPaymentStatus, setupBasketMandate, investBasketSIP, investBasketOneTime, registerMandate, checkMandateStatus, findUserMandates } from './invest.js';
-import { getPortfolio, getSIPs, getTransactions, cancelSIP, getBasketHoldings, getActionPlans } from './portfolio.js';
+import { investLumpsum, startSIP, redeemFund, investBasket, getAllBaskets, sendTransactionalOTP, verifyTransactionalOTP, investLumpsumUPI, completeLumpsumUPI, completeLumpsumNetbanking, checkPaymentStatus, investBasketSIP, investBasketOneTime, registerMandate, checkMandateStatus, findUserMandates } from './invest.js';
+import { getPortfolio, getTransactions, cancelSIP, getBasketHoldings, getActionPlans } from './portfolio.js';
 
 import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
 
@@ -170,22 +170,6 @@ export async function dispatchToolCall(name: string, args: any, tokenManager: To
             return { content: [{ type: 'text', text: result }] };
         }
 
-        case 'fabits_setup_basket_mandate': {
-            // Hardcoded: account_type='SB', mandate_type='UNIVERSAL' (matching frontend)
-            const result = await setupBasketMandate(
-                tokenManager,
-                args.plan_id as number,
-                args.phone_number as string,
-                args.email as string,
-                args.amount as number | undefined,
-                args.bank_account_number as string | undefined,
-                args.ifsc_code as string | undefined,
-                'SB', // Always Savings Bank
-                'UNIVERSAL' // Always UNIVERSAL mandate (matching frontend)
-            );
-            return { content: [{ type: 'text', text: result }] };
-        }
-
         case 'fabits_invest_basket_sip': {
             const result = await investBasketSIP(
                 tokenManager,
@@ -212,11 +196,6 @@ export async function dispatchToolCall(name: string, args: any, tokenManager: To
         // Portfolio
         case 'fabits_get_portfolio': {
             const result = await getPortfolio(tokenManager);
-            return { content: [{ type: 'text', text: result }] };
-        }
-
-        case 'fabits_get_sips': {
-            const result = await getSIPs(tokenManager);
             return { content: [{ type: 'text', text: result }] };
         }
 

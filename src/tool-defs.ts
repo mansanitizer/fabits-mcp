@@ -364,41 +364,7 @@ export const TOOLS: Tool[] = [
             required: ['user_id', 'order_number'],
         },
     },
-    {
-        name: 'fabits_setup_basket_mandate',
-        description: 'Setup e-mandate for action plan SIP. Uses Savings Bank account with UNIVERSAL mandate type.',
-        inputSchema: {
-            type: 'object',
-            properties: {
-                ...USER_ID_PROP,
-                plan_id: {
-                    type: 'number',
-                    description: 'Action plan ID',
-                },
-                phone_number: {
-                    type: 'string',
-                    description: 'User phone number',
-                },
-                email: {
-                    type: 'string',
-                    description: 'User email',
-                },
-                amount: {
-                    type: 'number',
-                    description: 'Optional amount override',
-                },
-                bank_account_number: {
-                    type: 'string',
-                    description: 'Optional bank account',
-                },
-                ifsc_code: {
-                    type: 'string',
-                    description: 'Optional IFSC',
-                },
-            },
-            required: ['user_id', 'plan_id', 'phone_number', 'email'],
-        },
-    },
+
     {
         name: 'fabits_invest_basket_sip',
         description: 'Invest in action plan via SIP.',
@@ -459,7 +425,7 @@ export const TOOLS: Tool[] = [
     },
     {
         name: 'fabits_get_portfolio',
-        description: 'Get complete portfolio overview.',
+        description: 'Get complete portfolio overview (Managed + External). Shows all holdings including Fabits managed assets and externally linked holdings with current values, returns, and performance metrics.',
         inputSchema: {
             type: 'object',
             properties: {
@@ -468,17 +434,7 @@ export const TOOLS: Tool[] = [
             required: ['user_id'],
         },
     },
-    {
-        name: 'fabits_get_sips',
-        description: 'Get all active and inactive SIPs.',
-        inputSchema: {
-            type: 'object',
-            properties: {
-                ...USER_ID_PROP,
-            },
-            required: ['user_id'],
-        },
-    },
+
     {
         name: 'fabits_get_transactions',
         description: 'Get transaction history.',
