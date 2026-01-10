@@ -39,7 +39,7 @@ export const TOOLS: Tool[] = [
     },
     {
         name: 'fabits_activate_account',
-        description: 'Activate a newly created account using the OTP received after signing up. This logs the user in automatically.',
+        description: 'Activate a newly created account using the OTP received (e.g., via fabits_request_otp). This logs the user in automatically and sets status to VERIFIED.',
         inputSchema: {
             type: 'object',
             properties: {
@@ -121,7 +121,7 @@ export const TOOLS: Tool[] = [
     },
     {
         name: 'fabits_verify_otp',
-        description: 'Step 2 of login: Verify OTP and complete login. Stores authentication token for subsequent requests. Must call fabits_request_otp first.',
+        description: 'Step 2 of login: Verify OTP and complete login for EXISTING users. New users should use fabits_activate_account instead.',
         inputSchema: {
             type: 'object',
             properties: {

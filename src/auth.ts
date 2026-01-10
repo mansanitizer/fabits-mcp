@@ -317,7 +317,7 @@ export async function signUp(firstName: string, lastName: string, email: string,
       return `⚠️ You already have an account on our partner platform (RedVision). Please continue on their platform: ${data.redirectUrl}`;
     }
 
-    return `✅ Sign Up Successful!\n\nWelcome to Fabits, ${firstName}! Your account has been created.\n\nNow, please login to continue:\n1. Call fabits_request_otp with your phone number\n2. Call fabits_verify_otp with the code you receive`;
+    return `✅ Sign Up Successful!\n\nWelcome to Fabits, ${firstName}! Your account has been created.\n\nNow, please activate your account to continue:\n1. Call fabits_request_otp with your phone number\n2. Call fabits_activate_account with the code you receive (NOT fabits_verify_otp)`;
   } catch (error) {
     if (axios.isAxiosError(error)) {
       const message = error.response?.data?.response?.message || error.response?.data?.message || error.message;
@@ -357,7 +357,7 @@ export async function requestOTP(phoneNumber: string): Promise<string> {
       throw new Error(data.message || 'Failed to send OTP');
     }
 
-    return `📱 OTP Sent!\n\nAn OTP has been sent to ${formattedPhone}\n\nPlease use fabits_verify_otp with your phone number and the OTP you received.`;
+    return `📱 OTP Sent!\n\nAn OTP has been sent to ${formattedPhone}\n\n• New User? Use fabits_activate_account to activate your account.\n• Existing User? Use fabits_verify_otp to login.`;
   } catch (error) {
     if (axios.isAxiosError(error)) {
       const message = error.response?.data?.message || error.message;
