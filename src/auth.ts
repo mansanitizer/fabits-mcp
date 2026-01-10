@@ -256,17 +256,29 @@ export async function createAuthenticatedClient(tokenManager: TokenManager): Pro
  * Format phone number to ensure it has +91 prefix if missing
  */
 function formatPhoneNumber(phone: string): string {
-  // Remove whitespace
-  const cleaned = phone.replace(/\s+/g, '');
+  // Check if it starts with + (after trim)
+  const hasPlus = phone.trim().startsWith('+');
 
-  // If it starts with +, assume it has country code
-  if (cleaned.startsWith('+')) {
-    return cleaned;
+  // Remove all non-digit characters to sanitize
+  const digits = phone.replace(/\D/g, '');
+
+  // If it had a plus, preserve it with the digits
+  if (hasPlus) {
+    return `+${digits}`;
   }
 
-  // If it is 10 digits/starts with 6-9, assume Indian number and add +91
-  // This is a "default to +91" strategy
-  return `+91${cleaned}`;
+  // If 12 digits starting with 91, assume India code without +
+  if (digits.length === 12 && digits.startsWith('91')) {
+    return `+${digits}`;
+  }
+
+  // If 10 digits, assume India default
+  if (digits.length === 10) {
+    return `+91${digits}`;
+  }
+
+  // Default fallback
+  return `+91${digits}`;
 }
 
 /**
@@ -321,6 +333,7 @@ export async function signUp(firstName: string, lastName: string, email: string,
 export async function requestOTP(phoneNumber: string): Promise<string> {
   try {
     const formattedPhone = formatPhoneNumber(phoneNumber);
+    console.error(`[requestOTP] Formatting: "${phoneNumber}" -> "${formattedPhone}"`);
     const response = await axios.post<APIResponse>(
       `${CONFIG.BASE_URL}${CONFIG.ENDPOINTS.REQUEST_OTP}`,
       { phoneNumber: formattedPhone },
