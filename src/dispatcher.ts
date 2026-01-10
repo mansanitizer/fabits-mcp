@@ -157,7 +157,8 @@ export async function dispatchToolCall(name: string, args: any, tokenManager: To
                 tokenManager,
                 args.scheme_code as string,
                 args.amount as number,
-                args.phone_number as string
+                args.phone_number as string,
+                args.email as string
             );
             return { content: [{ type: 'text', text: result }] };
         }

@@ -328,7 +328,7 @@ export const TOOLS: Tool[] = [
     },
     {
         name: 'fabits_complete_lumpsum_netbanking',
-        description: 'Complete Lumpsum investment via Netbanking. Returns a payment link.',
+        description: 'Complete Lumpsum investment via Netbanking. Requires OTP verification first. Returns a payment link.',
         inputSchema: {
             type: 'object',
             properties: {
@@ -345,8 +345,12 @@ export const TOOLS: Tool[] = [
                     type: 'string',
                     description: 'User phone number',
                 },
+                email: {
+                    type: 'string',
+                    description: 'User email address',
+                },
             },
-            required: ['user_id', 'scheme_code', 'amount', 'phone_number'],
+            required: ['user_id', 'scheme_code', 'amount', 'phone_number', 'email'],
         },
     },
     {
